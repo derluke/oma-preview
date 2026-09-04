@@ -1,3 +1,15 @@
+# 0.8.2 release checks
+
+- Six Rust/CLI tests and six input-guard unit tests pass locally.
+- Offscreen dialog and toolbar tests pass at 640, 800 and 1040px widths.
+- `tests/history-render.py` exercises first/last-page deletion, undo, redo and
+  reordering in the actual QML UI, requiring a ready PDF image after every step.
+  It catches the pre-fix blank-render regression. No global desktop input is used.
+- `Released package install` is a manually dispatched CI workflow that installs
+  the published Arch package in a fresh hosted environment and runs the same
+  dialog/history checks against its installed UI and backend. Consult the run
+  result for the specific version; this is not a physical Wayland desktop test.
+
 # 0.7.0 desktop validation
 
 Tested on Omarchy, Qt 6.11.2 / Quickshell 0.3.1, Wayland with Vulkan rendering.

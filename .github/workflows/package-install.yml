@@ -1,0 +1,34 @@
+name: Released package install
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Published release version (without v)
+        required: true
+        default: '0.8.2'
+permissions:
+  contents: read
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - run: pacman -Syu --noconfirm git curl python
+      - uses: actions/checkout@v4
+      - name: Install the published package and dependencies
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          curl --fail --location --output /tmp/oma-preview.pkg.tar.zst "https://github.com/derluke/oma-preview/releases/download/v$VERSION/oma-preview-$VERSION-1-x86_64.pkg.tar.zst"
+          pacman -U --noconfirm /tmp/oma-preview.pkg.tar.zst
+          pacman -Qkk oma-preview
+          test "$(oma-preview --version)" = "oma-preview $VERSION"
+      - name: Exercise installed UI and backend
+        env:
+          OMA_PREVIEW_TEST_UI: /usr/share/oma-preview/ui
+          OMA_PREVIEW_TEST_BIN: /usr/bin/oma-preview
+          QT_QPA_PLATFORMTHEME: ''
+        run: |
+          python tests/dialog-smoke.py
+          python tests/history-render.py

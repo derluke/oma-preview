@@ -21,8 +21,12 @@ ShellRoot {
         width: 1040
         height: 720
 
-        property int currentIndex: pages.count > 0 ? Math.min(pageList.currentIndex < 0 ? 0 : pageList.currentIndex, pages.count - 1) : -1
-        property var currentPage: (currentIndex >= 0 ? pages.get(currentIndex) : null) || ({path:"", page:1, width:595, height:842, key:""})
+        readonly property int currentIndex: pages.count > 0 ? Math.min(pageList.currentIndex < 0 ? 0 : pageList.currentIndex, pages.count - 1) : -1
+        // ListModel.get objects are invalidated by clear(). Keep a value snapshot,
+        // and depend on count so rebuilding history refreshes even the same index.
+        readonly property var currentPage: pages.count > 0 && currentIndex >= 0
+            ? JSON.parse(JSON.stringify(pages.get(currentIndex)))
+            : ({path:"", page:1, width:595, height:842, key:""})
         property string tool: "read"
         property bool sidebarVisible: true
         property real zoom: 1.0
@@ -513,7 +517,7 @@ ShellRoot {
                     cacheBuffer: 0
                     ScrollBar.vertical: ScrollBar { }
                     currentIndex: pages.count ? 0 : -1
-                    onCurrentIndexChanged: { window.currentIndex = currentIndex; window.selectedAnnotation = -1 }
+                    onCurrentIndexChanged: window.selectedAnnotation = -1
                     delegate: Rectangle {
                         required property int index
                         required property string path
@@ -667,7 +671,13 @@ ShellRoot {
                         y: Math.max(40, (viewport.contentHeight - height) / 2)
 
                         Rectangle { anchors.fill: parent; anchors.margins: -1; color: "#ffffff"; border.width: 1; border.color: "#b8b8b8" }
-                        PdfDocument { id: document; source: window.currentIndex >= 0 ? window.fileUri(window.currentPage.path) : "" }
+                        PdfDocument { id: document }
+                        // Model replacement briefly has no pages. Do not send that
+                        // intermediate empty URL through Qt's PDF image provider.
+                        Binding {
+                            target: document; property: "source"; delayed: true
+                            value: window.currentPage.path ? window.fileUri(window.currentPage.path) : ""
+                        }
                         PdfPageImage {
                             id: renderedPage
                             property double renderStartedAt: Date.now()

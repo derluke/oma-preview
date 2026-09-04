@@ -49,12 +49,12 @@ harness = '''
 '''
 with tempfile.TemporaryDirectory(prefix='oma-dialog-test-') as scratch:
     work = Path(scratch)
-    shutil.copytree(root / 'ui', work / 'ui')
+    shutil.copytree(os.environ.get('OMA_PREVIEW_TEST_UI', root / 'ui'), work / 'ui')
     shell = work / 'ui/shell.qml'
     shell.write_text(shell.read_text().replace('ShellId oma-preview', 'ShellId ' + work.name)
                      .replace('        Component.onCompleted: {', harness + '\n        Component.onCompleted: {'))
     env = dict(os.environ, QT_QPA_PLATFORM='offscreen', QT_QUICK_BACKEND='software',
-               QSG_RHI_BACKEND='opengl', OMA_PREVIEW_BIN=str(root / 'target/debug/oma-preview'),
+               QSG_RHI_BACKEND='opengl', OMA_PREVIEW_BIN=os.environ.get('OMA_PREVIEW_TEST_BIN', str(root / 'target/debug/oma-preview')),
                OMA_PREVIEW_PATHS='[]', OMA_PREVIEW_REVIEW_SPEC='',
                XDG_STATE_HOME=str(work/'state'), XDG_DATA_HOME=str(work/'data'))
     with (work/'log').open('w+') as log:

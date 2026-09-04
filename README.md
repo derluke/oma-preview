@@ -24,8 +24,8 @@ Gruvbox
 
 </details>
 
-These are development previews, newer than the 0.8.1 package. The screenshots
-show the latest controls; the video predates that polish. All form details are fictional.
+The screenshots show the 0.8.2 controls; the video predates that polish.
+All form details are fictional.
 
 ## What works
 
