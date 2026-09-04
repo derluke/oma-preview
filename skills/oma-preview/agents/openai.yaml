@@ -1,0 +1,4 @@
+interface:
+  display_name: "Oma Preview PDF"
+  short_description: "Fill and review PDFs visibly in Oma Preview"
+  default_prompt: "Use $oma-preview to fill this PDF and let me review it before export."

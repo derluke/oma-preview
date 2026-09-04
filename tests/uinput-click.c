@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
     setup.id.bustype = BUS_USB;
     setup.id.vendor = 0x1234;
     setup.id.product = 0x5678;
-    snprintf(setup.name, UINPUT_MAX_NAME_SIZE, "folio-ui-test-pointer");
+    snprintf(setup.name, UINPUT_MAX_NAME_SIZE, "oma-preview-ui-test-pointer");
     if (ioctl(fd, UI_DEV_SETUP, &setup) < 0 || ioctl(fd, UI_DEV_CREATE) < 0) {
         fprintf(stderr, "create uinput device: %s\n", strerror(errno));
         close(fd);

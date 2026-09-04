@@ -68,7 +68,7 @@ Item {
 
     Process {
         id: child
-        command: [Quickshell.env("FOLIO_BIN") || "folio", "--backend"]
+        command: [Quickshell.env("OMA_PREVIEW_BIN") || "oma-preview", "--backend"]
         running: true
         stdinEnabled: true
         stdout: SplitParser { splitMarker: "\n"; onRead: data => root.receive(data) }
@@ -80,11 +80,11 @@ Item {
         onRunningChanged: if (root.queueing && !child.running) {
             root.queueing = false
             root.pending = []
-            root.failed("Folio's document service could not start.")
+            root.failed("Oma Preview's document service could not start.")
         }
         onExited: function(code, status) {
             if (root.quitting) root.quitReady()
-            else root.failed("Folio's document service stopped unexpectedly.")
+            else root.failed("Oma Preview's document service stopped unexpectedly.")
         }
     }
 }

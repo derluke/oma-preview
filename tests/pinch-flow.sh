@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ui_dir="${FOLIO_UI_DIR:-$HOME/.local/share/folio/ui}"
+ui_dir="${OMA_PREVIEW_UI_DIR:-$HOME/.local/share/oma-preview/ui}"
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-pincher="$project_dir/target/folio-uinput-pinch"
+pincher="$project_dir/target/oma-preview-uinput-pinch"
 
 cc -O2 -Wall -Wextra -Werror "$project_dir/tests/uinput-pinch.c" -o "$pincher"
-call() { qs -p "$ui_dir" ipc call folio "$@"; }
+call() { qs -p "$ui_dir" ipc call oma-preview "$@"; }
 
-address="$(hyprctl clients -j | jq -r '.[] | select(.class=="org.omarchy.folio") | .address' | tail -1)"
+address="$(hyprctl clients -j | jq -r '.[] | select(.class=="org.omarchy.oma-preview") | .address' | tail -1)"
 if [[ -z "$address" ]]; then
-  echo "start Folio before running the pinch flow test" >&2
+  echo "start Oma Preview before running the pinch flow test" >&2
   exit 1
 fi
 

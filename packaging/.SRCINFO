@@ -1,8 +1,8 @@
-pkgbase = folio-pdf
+pkgbase = oma-preview
 	pkgdesc = A small Omarchy-native PDF reader and editor with visible agent review
-	pkgver = 0.7.0
+	pkgver = 0.8.0
 	pkgrel = 1
-	url = https://github.com/derluke/pdf
+	url = https://github.com/derluke/oma-preview
 	arch = x86_64
 	arch = aarch64
 	license = MIT
@@ -16,7 +16,7 @@ pkgbase = folio-pdf
 	depends = gcc-libs
 	depends = glibc
 	options = !debug
-	source = folio-pdf-0.7.0.tar.gz::https://github.com/derluke/pdf/archive/refs/tags/v0.7.0.tar.gz
+	source = oma-preview-0.8.0.tar.gz::https://github.com/derluke/oma-preview/archive/refs/tags/v0.8.0.tar.gz
 	sha256sums = b54f48a206c69f1f3d073895db1c580a6e5face3a9d606a643a11e9c41470dbc
 
-pkgname = folio-pdf
+pkgname = oma-preview

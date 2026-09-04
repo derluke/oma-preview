@@ -1,3 +1,11 @@
+# 0.8.0
+
+- Renamed Folio to Oma Preview (`oma-preview`), retaining private saved data.
+- Document undo/redo for page assembly, annotations, formatting and live proposals.
+- Coalesced text edits and resize gestures, with native undo while typing.
+- Removed pages no longer leave orphaned annotations in export payloads.
+- Isolated UI test ShellIds; keyboard undo/redo regression on real PDFs.
+
 # 0.7.0
 
 - Persistent Recent menu, with ten deduplicated paths, missing-file filtering,

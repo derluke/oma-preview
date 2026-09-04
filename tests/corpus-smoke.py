@@ -15,16 +15,20 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-BIN = Path(os.environ.get("FOLIO_TEST_BIN", ROOT / "target/release/folio"))
+BIN = Path(os.environ.get("OMA_PREVIEW_TEST_BIN", ROOT / "target/release/oma-preview"))
 
 def run(args, **kwargs):
     return sp.check_output([str(a) for a in args], text=True, **kwargs).strip()
 
-with tempfile.TemporaryDirectory(prefix="folio-corpus-") as scratch:
+with tempfile.TemporaryDirectory(prefix="oma-preview-corpus-") as scratch:
     work = Path(scratch)
     ui = work / "ui"
-    shutil.copytree(Path(os.environ.get("FOLIO_TEST_UI", ROOT / "ui")), ui)
-    env = dict(os.environ, FOLIO_UI_DIR=str(ui), XDG_STATE_HOME=str(work / "state"),
+    shutil.copytree(Path(os.environ.get("OMA_PREVIEW_TEST_UI", ROOT / "ui")), ui)
+    # Quickshell groups IPC by ShellId, even with distinct config paths.
+    # Never let test commands resolve to the user's open review window.
+    shell_file = ui / "shell.qml"
+    shell_file.write_text(shell_file.read_text().replace("//@ pragma ShellId oma-preview", "//@ pragma ShellId " + work.name))
+    env = dict(os.environ, OMA_PREVIEW_UI_DIR=str(ui), XDG_STATE_HOME=str(work / "state"),
                XDG_DATA_HOME=str(work / "data"))
     clicker = work / "click"
     run(["cc", "-O2", ROOT / "tests/uinput-click.c", "-o", clicker])
@@ -32,7 +36,7 @@ with tempfile.TemporaryDirectory(prefix="folio-corpus-") as scratch:
     log = (work / "ui.log").open("w+")
 
     def call(method, *args):
-        return run(["qs", "-p", ui, "ipc", "call", "folio", method, *args], stderr=sp.DEVNULL)
+        return run(["qs", "-p", ui, "ipc", "call", "oma-preview", method, *args], stderr=sp.DEVNULL)
 
     def wait_for(predicate, timeout=30):
         deadline = time.monotonic() + timeout
@@ -44,7 +48,7 @@ with tempfile.TemporaryDirectory(prefix="folio-corpus-") as scratch:
                 pass
             time.sleep(0.025)
         log.flush()
-        raise AssertionError("Timed out waiting for Folio; log: " + (work / "ui.log").read_text()[-3000:])
+        raise AssertionError("Timed out waiting for Oma Preview; log: " + (work / "ui.log").read_text()[-3000:])
 
     def stop():
         global process
@@ -60,9 +64,9 @@ with tempfile.TemporaryDirectory(prefix="folio-corpus-") as scratch:
         wait_for(lambda: call("ready") == "true")
 
     def window():
-        # The testing shell is identified by its PID group, not by another Folio window.
+        # The testing shell is identified by its PID group, not by another Oma Preview window.
         clients = json.loads(run(["hyprctl", "clients", "-j"]))
-        return next(c for c in clients if c["class"] == "org.omarchy.folio"
+        return next(c for c in clients if c["class"] == "org.omarchy.oma-preview"
                     and os.getpgid(c["pid"]) == process.pid)
 
     def click(point):
@@ -85,10 +89,38 @@ with tempfile.TemporaryDirectory(prefix="folio-corpus-") as scratch:
             inspect_ms = (time.monotonic()-start)*1000
             start = time.monotonic()
             launch(path)
-            wait_for(lambda: json.loads(call("renderState"))["ready"])
+            wait_for(lambda: int(call("pageCount")) == inspected["page_count"] and not json.loads(call("state"))["busy"] and json.loads(call("renderState"))["ready"])
             first_ms = (time.monotonic()-start)*1000
             assert int(call("pageCount")) == inspected["page_count"]
             click(call("pagePoint", "0.5", "0.5"))
+            # Actual keyboard undo/redo: deleting a page must restore its identity.
+            original = json.loads(call("state"))
+            click(call("textButtonCentre"))
+            click(call("pagePoint", "0.4", "0.3"))
+            run(["wtype", "Undo regression"])
+            run(["wtype", "-k", "Return"])
+            wait_for(lambda: int(call("annotationCount")) == 1)
+            run(["wtype", "-M", "ctrl", "-k", "z", "-m", "ctrl"])
+            wait_for(lambda: int(call("annotationCount")) == 0)
+            run(["wtype", "-M", "ctrl", "-k", "y", "-m", "ctrl"])
+            wait_for(lambda: call("annotationText", "0") == "Undo regression")
+            run(["wtype", "-M", "ctrl", "-k", "z", "-m", "ctrl"])
+            wait_for(lambda: int(call("annotationCount")) == 0)
+            if inspected["page_count"] > 1:
+                run(["wtype", "-k", "Delete"])
+                wait_for(lambda: int(call("pageCount")) == inspected["page_count"] - 1)
+                run(["wtype", "-M", "ctrl", "-k", "z", "-m", "ctrl"])
+                wait_for(lambda: int(call("pageCount")) == inspected["page_count"])
+                assert json.loads(call("state"))["pages"] == original["pages"]
+                assert call("dirty") == "false"
+                run(["wtype", "-M", "ctrl", "-k", "y", "-m", "ctrl"])
+                wait_for(lambda: int(call("pageCount")) == inspected["page_count"] - 1)
+                run(["wtype", "-M", "ctrl", "-k", "z", "-m", "ctrl"])
+                wait_for(lambda: int(call("pageCount")) == inspected["page_count"])
+            if os.environ.get("OMA_PREVIEW_TEST_UNDO_ONLY") == "1":
+                print(json.dumps(dict(file=path.name, undo="pass", redo="pass", text="pass", pages="pass")), flush=True)
+                stop()
+                continue
             if call("bookmarked") != "true":
                 run(["wtype", "-M", "ctrl", "-k", "b", "-m", "ctrl"])
             wait_for(lambda: call("bookmarked") == "true")

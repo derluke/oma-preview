@@ -8,22 +8,22 @@ codex_skills_dir="${CODEX_HOME:-$HOME/.codex}/skills"
 
 for dependency in qs qpdf pdfinfo rsvg-convert cargo xdg-mime; do
   if ! command -v "$dependency" >/dev/null 2>&1; then
-    echo "Folio needs '$dependency', but it is not installed." >&2
+    echo "Oma Preview needs '$dependency', but it is not installed." >&2
     exit 1
   fi
 done
 
 cargo build --release --manifest-path "$project_dir/Cargo.toml"
-install -Dm755 "$project_dir/target/release/folio" "$bin_dir/folio"
-install -Dm644 "$project_dir/data/org.omarchy.folio.desktop" "$data_dir/applications/org.omarchy.folio.desktop"
-install -Dm644 "$project_dir/assets/org.omarchy.folio.svg" "$data_dir/icons/hicolor/scalable/apps/org.omarchy.folio.svg"
-install -d "$data_dir/folio/ui"
-install -m644 "$project_dir"/ui/*.qml "$project_dir/ui/qmldir" "$data_dir/folio/ui/"
-install -Dm644 "$project_dir/skills/folio-pdf/SKILL.md" "$codex_skills_dir/folio-pdf/SKILL.md"
-install -Dm644 "$project_dir/skills/folio-pdf/agents/openai.yaml" "$codex_skills_dir/folio-pdf/agents/openai.yaml"
+install -Dm755 "$project_dir/target/release/oma-preview" "$bin_dir/oma-preview"
+install -Dm644 "$project_dir/data/org.omarchy.oma-preview.desktop" "$data_dir/applications/org.omarchy.oma-preview.desktop"
+install -Dm644 "$project_dir/assets/org.omarchy.oma-preview.svg" "$data_dir/icons/hicolor/scalable/apps/org.omarchy.oma-preview.svg"
+install -d "$data_dir/oma-preview/ui"
+install -m644 "$project_dir"/ui/*.qml "$project_dir/ui/qmldir" "$data_dir/oma-preview/ui/"
+install -Dm644 "$project_dir/skills/oma-preview/SKILL.md" "$codex_skills_dir/oma-preview/SKILL.md"
+install -Dm644 "$project_dir/skills/oma-preview/agents/openai.yaml" "$codex_skills_dir/oma-preview/agents/openai.yaml"
 
 update-desktop-database "$data_dir/applications" >/dev/null 2>&1 || true
 gtk-update-icon-cache -f -t "$data_dir/icons/hicolor" >/dev/null 2>&1 || true
-xdg-mime default org.omarchy.folio.desktop application/pdf
+xdg-mime default org.omarchy.oma-preview.desktop application/pdf
 
-echo "Installed Folio, its Codex skill, and made it the default PDF app."
+echo "Installed Oma Preview, its Codex skill, and made it the default PDF app."

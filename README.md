@@ -1,6 +1,6 @@
-# Folio
+# Oma Preview
 
-Folio is a small PDF reader/editor shaped for Omarchy. Rust handles document
+Oma Preview is a small PDF reader/editor shaped for Omarchy. Rust handles document
 inspection, page assembly, and Unicode-capable vector overlays; Quickshell handles a thin,
 theme-aware interface. Rendering is provided by QtQuick.Pdf, while qpdf keeps
 page extraction and concatenation structurally safe.
@@ -12,11 +12,21 @@ page extraction and concatenation structurally safe.
 - Text placed anywhere, including on PDFs with no form fields
 - Draw a signature once, retain it locally, and place it again later
 - Open several PDFs, reorder or remove pages, and save the result
+- In-session undo/redo for page assembly and annotation edits (up to 100 changes)
 - Per-document reading bookmarks
 - Live Omarchy colours and a native Wayland window; running windows follow theme changes
 - Contextual text formatting (size, Sans/Serif/Mono, black/blue/red) and signature sizing
 
 The original documents are never modified. `Save as…` writes a fresh PDF.
+
+Use **Ctrl+Z** to undo and **Ctrl+Shift+Z** or **Ctrl+Y** to redo, or the
+↶ / ↷ toolbar buttons. While typing, undo affects the text editor; after
+finishing, the text edit is one document-level step. Moves and resizes are
+one step per gesture. Deleted pages return with their annotations. Adding PDFs
+and live agent proposals are undoable too. Export retains session history,
+but undo does not change an already exported file. Opening another document
+or restarting starts a new history; drafts preserve the edits, not the undo stack.
+Reading bookmarks and the saved signature library are separate from document history.
 
 Edits are atomically autosaved as private, source-fingerprinted JSON drafts in
 `~/.local/state/folio/drafts`. Reopening the same source restores its workspace.
@@ -36,8 +46,8 @@ cargo run -- --gui document.pdf
 
 The installer is user-local: it puts the binary in `~/.local/bin`, places the
 UI and desktop entry under `~/.local/share`, installs the automatically
-discoverable `folio-pdf` Codex skill under `~/.codex/skills`, and registers
-Folio as the default handler for `application/pdf`. It does not write to
+discoverable `oma-preview` Codex skill under `~/.codex/skills`, and registers
+Oma Preview as the default handler for `application/pdf`. It does not write to
 `/usr/share/omarchy`.
 
 ## Agent CLI
@@ -47,18 +57,18 @@ is intentionally file/JSON based, so it is deterministic and does not require
 mouse automation:
 
 ```sh
-folio inspect input.pdf
-folio agent-help
-folio review edit.json
-folio edit edit.json
-folio status
-folio verify result.pdf
+oma-preview inspect input.pdf
+oma-preview agent-help
+oma-preview review edit.json
+oma-preview edit edit.json
+oma-preview status
+oma-preview verify result.pdf
 ```
 
 An edit spec chooses pages from any number of source PDFs, establishing merge,
 slice, and order in one operation. It can then place text by normalized
 top-left coordinates. A saved signature is available as `saved_signature`, but
-Folio refuses to use it unless `--allow-saved-signature` is also passed.
+Oma Preview refuses to use it unless `--allow-saved-signature` is also passed.
 `review` opens the proposal on screen for correction and user-controlled export;
 `edit` updates that running review in place without restarting the window;
 `apply` is the explicitly headless alternative.
@@ -68,9 +78,9 @@ Use it before further edits so manual corrections are not lost: `edit` replaces
 the entire proposal, it does not merge changes. Updates wait for the window to
 confirm loading and refuse while the user is typing or the document is busy.
 They preserve the current page and zoom. Connector installation and sign-in are
-handled by the agent host, not Folio; verify access before claiming a lookup ran.
+handled by the agent host, not Oma Preview; verify access before claiming a lookup ran.
 
-The installed `folio-pdf` skill advertises this intended workflow to new Codex
+The installed `oma-preview` skill advertises this intended workflow to new Codex
 tasks globally, including the preference for visible review, output verification,
 multiline text, and the separate authorization required for signatures. Agents
 working inside this repository also receive the same policy from `AGENTS.md`.
@@ -117,7 +127,7 @@ the editor and exported PDF use the same lines.
 
 ## UI regression test
 
-With Folio open, `tests/ui-flow.sh` injects real pointer clicks through uinput,
+With Oma Preview open, `tests/ui-flow.sh` injects real pointer clicks through uinput,
 uses the read-only Quickshell IPC seam to locate controls, types into the actual
 text editor, places the saved signature, and removes both test annotations. It
 also clicks the contextual formatting controls and checks their model updates.
@@ -132,11 +142,13 @@ reopening through the actual Recent menu in an isolated state directory.
 
 ## Deliberate boundaries
 
-Folio treats filling as visible text/signature overlays instead of exposing the
+Oma Preview treats filling as visible text/signature overlays instead of exposing the
 complexity of PDF form internals. The useful next additions are search/copy,
 rotate, undo, and print/share. They should remain secondary commands rather
 than becoming permanent toolbar furniture.
 
 Signatures are stored as normalized vector strokes in
 `~/.local/share/folio/signature.json`; bookmarks live in
-`~/.local/state/folio/bookmarks.json`.
+`~/.local/state/folio/bookmarks.json`. These legacy Folio storage paths and draft
+fingerprints are intentionally retained, so upgrading to Oma Preview preserves
+drafts, recents, bookmarks and saved signatures without copying private data.

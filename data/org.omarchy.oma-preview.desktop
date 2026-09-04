@@ -1,12 +1,12 @@
 [Desktop Entry]
 Type=Application
-Name=Folio
+Name=Oma Preview
 GenericName=PDF Viewer
 Comment=Read, fill, sign, and rearrange PDFs
-Exec=folio --gui %F
-Icon=org.omarchy.folio
+Exec=oma-preview --gui %F
+Icon=org.omarchy.oma-preview
 Terminal=false
 Categories=Office;Viewer;
 MimeType=application/pdf;
 Keywords=pdf;preview;sign;fill;merge;split;
-StartupWMClass=org.omarchy.folio
+StartupWMClass=org.omarchy.oma-preview

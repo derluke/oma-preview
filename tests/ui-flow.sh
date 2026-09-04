@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ui_dir="${FOLIO_UI_DIR:-$HOME/.local/share/folio/ui}"
+ui_dir="${OMA_PREVIEW_UI_DIR:-$HOME/.local/share/oma-preview/ui}"
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-clicker="$(mktemp --tmpdir folio-ui-click.XXXXXX)"
+clicker="$(mktemp --tmpdir oma-preview-ui-click.XXXXXX)"
 trap 'rm -f "$clicker"' EXIT
 
 cc -O2 -Wall -Wextra -Werror "$project_dir/tests/uinput-click.c" -o "$clicker"
 
-call() { qs -p "$ui_dir" ipc call folio "$@"; }
+call() { qs -p "$ui_dir" ipc call oma-preview "$@"; }
 assert_eq() {
   if [[ "$1" != "$2" ]]; then
     echo "expected '$2', got '$1': $3" >&2
@@ -22,10 +22,10 @@ assert_ne() {
   fi
 }
 
-assert_eq "$(call ready)" "true" "Folio UI did not become ready"
-address="$(hyprctl clients -j | jq -r '.[] | select(.class=="org.omarchy.folio") | .address' | tail -1)"
+assert_eq "$(call ready)" "true" "Oma Preview UI did not become ready"
+address="$(hyprctl clients -j | jq -r '.[] | select(.class=="org.omarchy.oma-preview") | .address' | tail -1)"
 if [[ -z "$address" ]]; then
-  echo "start Folio before running the UI flow test" >&2
+  echo "start Oma Preview before running the UI flow test" >&2
   exit 1
 fi
 read -r window_x window_y <<< "$(hyprctl clients -j | jq -r '.[] | select(.address=="'"$address"'") | "\(.at[0]) \(.at[1])"')"
@@ -67,14 +67,14 @@ assert_eq "$text_count" "$((baseline + 1))" "Page click did not create text"
 text_index="$((text_count - 1))"
 assert_eq "$(call editingText "$text_index")" "true" "New text did not receive keyboard focus"
 assert_eq "$(call tool)" "text" "Text tool should stay selected while its editor is active"
-wtype 'Folio pointer flow'
+wtype 'Oma Preview pointer flow'
 page_before_typing="$(call currentPage)"
 wtype -k Left -k Right
 assert_eq "$(call currentPage)" "$page_before_typing" "Caret arrow keys changed the PDF page"
 wtype -M shift -k Return -m shift
 assert_eq "$(call editingText "$text_index")" "true" "Shift+Enter should keep editing for a new line"
 wtype 'second line'
-expected_text=$'Folio pointer flow\nsecond line'
+expected_text=$'Oma Preview pointer flow\nsecond line'
 assert_eq "$(call annotationText "$text_index")" "$expected_text" "Multiline text did not reach the annotation"
 wtype -k Return
 assert_eq "$(call editingText "$text_index")" "false" "Enter did not finish multiline text editing"

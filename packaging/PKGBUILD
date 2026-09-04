@@ -1,10 +1,10 @@
 # Maintainer: Lukas Innig (derluke on GitHub)
-pkgname=folio-pdf
-pkgver=0.7.0
+pkgname=oma-preview
+pkgver=0.8.0
 pkgrel=1
 pkgdesc='A small Omarchy-native PDF reader and editor with visible agent review'
 arch=('x86_64' 'aarch64')
-url='https://github.com/derluke/pdf'
+url='https://github.com/derluke/oma-preview'
 license=('MIT')
 options=('!debug')
 depends=('quickshell' 'qt6-declarative' 'qt6-webengine' 'qpdf' 'poppler' 'librsvg' 'gcc-libs' 'glibc')
@@ -13,31 +13,31 @@ source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('b54f48a206c69f1f3d073895db1c580a6e5face3a9d606a643a11e9c41470dbc')
 
 prepare() {
-    cd "pdf-$pkgver"
+    cd "oma-preview-$pkgver"
     # Packaged builds must not embed a developer checkout as a UI fallback.
-    sed -i 's#PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui")#PathBuf::from("/usr/share/folio/ui")#' src/main.rs
+    sed -i 's#PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui")#PathBuf::from("/usr/share/oma-preview/ui")#' src/main.rs
     cargo fetch --locked
 }
 
 build() {
-    cd "pdf-$pkgver"
+    cd "oma-preview-$pkgver"
     cargo build --frozen --release
 }
 
 check() {
-    cd "pdf-$pkgver"
+    cd "oma-preview-$pkgver"
     cargo test --frozen
 }
 
 package() {
-    cd "pdf-$pkgver"
-    install -Dm755 target/release/folio "$pkgdir/usr/bin/folio"
-    install -d "$pkgdir/usr/share/folio/ui"
-    install -m644 ui/*.qml ui/qmldir "$pkgdir/usr/share/folio/ui/"
-    install -Dm644 data/org.omarchy.folio.desktop "$pkgdir/usr/share/applications/org.omarchy.folio.desktop"
-    install -Dm644 assets/org.omarchy.folio.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/org.omarchy.folio.svg"
+    cd "oma-preview-$pkgver"
+    install -Dm755 target/release/oma-preview "$pkgdir/usr/bin/oma-preview"
+    install -d "$pkgdir/usr/share/oma-preview/ui"
+    install -m644 ui/*.qml ui/qmldir "$pkgdir/usr/share/oma-preview/ui/"
+    install -Dm644 data/org.omarchy.oma-preview.desktop "$pkgdir/usr/share/applications/org.omarchy.oma-preview.desktop"
+    install -Dm644 assets/org.omarchy.oma-preview.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/org.omarchy.oma-preview.svg"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
     install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
-    install -Dm644 skills/folio-pdf/SKILL.md "$pkgdir/usr/share/folio/skills/folio-pdf/SKILL.md"
-    install -Dm644 skills/folio-pdf/agents/openai.yaml "$pkgdir/usr/share/folio/skills/folio-pdf/agents/openai.yaml"
+    install -Dm644 skills/oma-preview/SKILL.md "$pkgdir/usr/share/oma-preview/skills/oma-preview/SKILL.md"
+    install -Dm644 skills/oma-preview/agents/openai.yaml "$pkgdir/usr/share/oma-preview/skills/oma-preview/agents/openai.yaml"
 }

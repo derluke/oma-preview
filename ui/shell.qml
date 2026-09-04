@@ -1,5 +1,5 @@
-//@ pragma AppId org.omarchy.folio
-//@ pragma ShellId folio
+//@ pragma AppId org.omarchy.oma-preview
+//@ pragma ShellId oma-preview
 //@ pragma NativeTextRendering
 //@ pragma DefaultEnv QSG_RHI_BACKEND=vulkan
 
@@ -17,12 +17,12 @@ ShellRoot {
     Window {
         id: window
         visible: true
-        title: (currentIndex >= 0 ? "Folio — " + fileName(currentPage.path) : "Folio") + (dirty ? " •" : "")
+        title: (currentIndex >= 0 ? "Oma Preview — " + fileName(currentPage.path) : "Oma Preview") + (dirty ? " •" : "")
         width: 1040
         height: 720
 
         property int currentIndex: pages.count > 0 ? Math.min(pageList.currentIndex < 0 ? 0 : pageList.currentIndex, pages.count - 1) : -1
-        property var currentPage: currentIndex >= 0 ? pages.get(currentIndex) : ({path:"", page:1, width:595, height:842, key:""})
+        property var currentPage: (currentIndex >= 0 ? pages.get(currentIndex) : null) || ({path:"", page:1, width:595, height:842, key:""})
         property string tool: "read"
         property real zoom: 1.0
         property int serial: 0
@@ -55,6 +55,53 @@ ShellRoot {
         property bool applyingLiveReview: false
         property int reviewRevision: 0
         property string reviewError: ""
+        property var undoStack: []
+        property var redoStack: []
+        property var historyHead: null
+        property string savedContent: ""
+
+        function historySnapshot() {
+            var marks = []
+            for (var i = 0; i < annotations.count; i++) marks.push(JSON.parse(JSON.stringify(annotations.get(i))))
+            return {pages:pagePayload(), marks:marks, current:currentIndex, output:suggestedOutput}
+        }
+        function contentKey(s) { return JSON.stringify([s.pages, s.marks, s.output]) }
+        function resetHistory() {
+            undoStack = []; redoStack = []; historyHead = historySnapshot()
+            savedContent = dirty ? "" : contentKey(historyHead)
+        }
+        function recordHistory() {
+            if (editingAnnotation >= 0) return
+            var next = historySnapshot()
+            if (historyHead && contentKey(next) !== contentKey(historyHead)) {
+                undoStack = undoStack.concat([historyHead]).slice(-100)
+                redoStack = []
+            }
+            historyHead = next
+        }
+        function travelHistory(redo) {
+            if (busy || loadingWorkspace || editingAnnotation >= 0) return
+            var stack = redo ? redoStack : undoStack
+            if (!stack.length) return
+            var target = stack[stack.length - 1]
+            if (redo) { undoStack = undoStack.concat([historySnapshot()]); redoStack = stack.slice(0, -1) }
+            else { redoStack = redoStack.concat([historySnapshot()]); undoStack = stack.slice(0, -1) }
+            loadingWorkspace = true
+            selectedAnnotation = -1; tool = "read"
+            pages.clear(); annotations.clear()
+            target.pages.forEach(function(p) { pages.append(p) })
+            target.marks.forEach(function(a) { annotations.append(a) })
+            pageList.currentIndex = target.current
+            suggestedOutput = target.output
+            loadingWorkspace = false
+            historyHead = historySnapshot()
+            dirty = contentKey(historyHead) !== savedContent
+            draftTimer.stop()
+            if (dirty) saveDraftNow()
+            else if (draftKey.length) backend.deleteDraft(draftKey)
+            paper.forceActiveFocus()
+            say(redo ? "Redone" : "Undone", false)
+        }
 
         readonly property bool hasSelectedAnnotation: selectedAnnotation >= 0 && selectedAnnotation < annotations.count
         readonly property string selectedKind: hasSelectedAnnotation ? annotations.get(selectedAnnotation).kind : ""
@@ -134,7 +181,8 @@ ShellRoot {
         }
         function markDirty() {
             if (loadingWorkspace) return
-            dirty = true
+            recordHistory()
+            dirty = editingAnnotation >= 0 || !historyHead || contentKey(historyHead) !== savedContent
             if (draftKey.length) draftTimer.restart()
         }
         function saveDraftNow() {
@@ -291,7 +339,12 @@ ShellRoot {
         function deletePage() {
             if (selectedAnnotation >= 0) { deleteSelectedAnnotation(); return }
             if (currentIndex < 0 || pages.count <= 1) return
-            var old = currentIndex; pages.remove(old); pageList.currentIndex = Math.min(old, pages.count - 1); markDirty()
+            var old = currentIndex
+            var key = currentPage.key
+            for (var i = annotations.count - 1; i >= 0; i--) {
+                if (annotations.get(i).pageKey === key) annotations.remove(i)
+            }
+            pages.remove(old); pageList.currentIndex = Math.min(old, pages.count - 1); markDirty()
         }
 
         onClosing: close => {
@@ -329,6 +382,7 @@ ShellRoot {
             }
             function onExported(id, path) {
                 window.busy = false; window.dirty = false
+                window.savedContent = window.contentKey(window.historySnapshot())
                 if (window.draftKey.length) backend.deleteDraft(window.draftKey)
                 window.say("Saved " + window.fileName(path), false)
                 if (window.closeAfterExport) window.closeWindow()
@@ -382,6 +436,7 @@ ShellRoot {
                     window.say(window.baseStartsDirty ? "Agent proposal loaded — review and adjust before saving" : "Ready", false)
                 }
                 window.baseStartsDirty = false
+                window.resetHistory()
             }
             function onFailed(message) { if (window.applyingLiveReview) window.reviewError = message; window.busy = false; window.loadingWorkspace = false; window.applyingLiveReview = false; window.say(message, true) }
         }
@@ -407,6 +462,8 @@ ShellRoot {
                     ToolButton { label: "Open"; onActivated: openDialog.open() }
                     ToolButton { id: recentButton; label: "Recent"; onActivated: recentMenu.popup() }
                     ToolButton { label: "Add PDF"; onActivated: addDialog.open() }
+                    ToolButton { label: "↶"; enabled: window.undoStack.length > 0 && !window.busy && window.editingAnnotation < 0; onActivated: window.travelHistory(false) }
+                    ToolButton { label: "↷"; enabled: window.redoStack.length > 0 && !window.busy && window.editingAnnotation < 0; onActivated: window.travelHistory(true) }
                 }
                 Row {
                     anchors.centerIn: parent
@@ -520,7 +577,7 @@ ShellRoot {
 
                 Column {
                     anchors.centerIn: parent; spacing: 14; visible: pages.count === 0
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Folio"; color: Theme.foreground; font.family: Theme.fontFamily; font.pixelSize: 28 }
+                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Oma Preview"; color: Theme.foreground; font.family: Theme.fontFamily; font.pixelSize: 28 }
                     Text { anchors.horizontalCenter: parent.horizontalCenter; text: "Open a PDF to read, fill, sign, or rearrange it."; color: Theme.muted; font.family: Theme.fontFamily; font.pixelSize: Theme.textSize }
                     ToolButton { anchors.horizontalCenter: parent.horizontalCenter; label: "Open PDF"; chosen: true; onActivated: openDialog.open() }
                 }
@@ -704,12 +761,12 @@ ShellRoot {
                                             MouseArea {
                                                 anchors.fill: parent; hoverEnabled: true; preventStealing: true
                                                 cursorShape: Qt.SizeHorCursor
+                                                onReleased: window.markDirty()
                                                 onPositionChanged: mouse => {
                                                     if (!pressed) return
                                                     var point = mapToItem(paper, mouse.x, mouse.y)
                                                     var width = Math.max(60, Math.min(paper.width - textEditor.x, point.x - textEditor.x))
                                                     annotations.setProperty(markLoader.index, "nw", width / paper.width)
-                                                    window.markDirty()
                                                 }
                                             }
                                         }
@@ -764,6 +821,7 @@ ShellRoot {
                                             MouseArea {
                                                 anchors.fill: parent; hoverEnabled: true; preventStealing: true
                                                 cursorShape: Qt.SizeFDiagCursor
+                                                onReleased: window.markDirty()
                                                 onPositionChanged: mouse => {
                                                     if (!pressed) return
                                                     var point = mapToItem(paper, mouse.x, mouse.y)
@@ -775,7 +833,6 @@ ShellRoot {
                                                     factor = Math.min(factor, maxFactorX, maxFactorY)
                                                     annotations.setProperty(markLoader.index, "nw", Math.max(0.06, markLoader.nw * factor))
                                                     annotations.setProperty(markLoader.index, "nh", Math.max(0.025, markLoader.nh * factor))
-                                                    window.markDirty()
                                                 }
                                             }
                                         }
@@ -915,7 +972,7 @@ ShellRoot {
             }
         }
         Ipc {
-            folioWindow: window
+            previewWindow: window
             pages: pages
             annotations: annotations
             annotationRepeater: annotationRepeater
@@ -936,6 +993,8 @@ ShellRoot {
         Timer { id: statusTimer; interval: 4500; onTriggered: window.statusText = "" }
         Timer { id: draftTimer; interval: 600; onTriggered: window.saveDraftNow() }
         Shortcut { sequence: "Ctrl+O"; onActivated: openDialog.open() }
+        Shortcut { sequence: "Ctrl+Z"; enabled: window.editingAnnotation < 0; onActivated: window.travelHistory(false) }
+        Shortcut { sequences: ["Ctrl+Shift+Z", "Ctrl+Y"]; enabled: window.editingAnnotation < 0; onActivated: window.travelHistory(true) }
         Shortcut { sequence: "Ctrl+Shift+O"; onActivated: addDialog.open() }
         Shortcut { sequence: "Ctrl+Shift+S"; enabled: pages.count > 0; onActivated: saveDialog.open() }
         Shortcut { sequence: "Ctrl+B"; enabled: pages.count > 0; onActivated: window.toggleBookmark() }
@@ -952,13 +1011,13 @@ ShellRoot {
         Component.onCompleted: {
             backend.getRecents()
             backend.getSignature()
-            var raw = Quickshell.env("FOLIO_PATHS") || "[]"
+            var raw = Quickshell.env("OMA_PREVIEW_PATHS") || "[]"
             try { var initial = JSON.parse(raw); var clean=[]; for(var i=0;i<initial.length;i++) if(initial[i]) clean.push(initial[i]); openPaths(clean, true) }
-            catch(e) { say("Could not read the files passed to Folio.", true) }
-            var reviewSpec = Quickshell.env("FOLIO_REVIEW_SPEC") || ""
+            catch(e) { say("Could not read the files passed to Oma Preview.", true) }
+            var reviewSpec = Quickshell.env("OMA_PREVIEW_REVIEW_SPEC") || ""
             if (reviewSpec) {
                 busy = true
-                backend.loadSpec(reviewSpec, Quickshell.env("FOLIO_ALLOW_SAVED_SIGNATURE") === "1")
+                backend.loadSpec(reviewSpec, Quickshell.env("OMA_PREVIEW_ALLOW_SAVED_SIGNATURE") === "1")
             }
         }
     }

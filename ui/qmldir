@@ -1,4 +1,4 @@
-module folio
+module OmaPreview
 singleton Theme 1.0 Theme.qml
 Backend 1.0 Backend.qml
 ToolButton 1.0 ToolButton.qml

@@ -150,7 +150,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         Some("--version") => {
-            println!("folio {}", env!("CARGO_PKG_VERSION"));
+            println!("oma-preview {}", env!("CARGO_PKG_VERSION"));
             Ok(())
         }
         Some("--help") | Some("-h") => {
@@ -163,34 +163,34 @@ fn main() -> Result<()> {
 
 fn print_help() {
     println!(
-        "usage: folio [--gui] [PDF ...]\n\
-         \x20      folio inspect PDF\n\
-         \x20      folio apply SPEC.json [--allow-saved-signature]\n\
-         \x20      folio review SPEC.json [--allow-saved-signature]\n\
-         \x20      folio edit SPEC.json [--allow-saved-signature]\n\
-         \x20      folio status\n\
-         \x20      folio verify PDF\n\
-         \x20      folio agent-help\n\
-         \x20      folio --version"
+        "usage: oma-preview [--gui] [PDF ...]\n\
+         \x20      oma-preview inspect PDF\n\
+         \x20      oma-preview apply SPEC.json [--allow-saved-signature]\n\
+         \x20      oma-preview review SPEC.json [--allow-saved-signature]\n\
+         \x20      oma-preview edit SPEC.json [--allow-saved-signature]\n\
+         \x20      oma-preview status\n\
+         \x20      oma-preview verify PDF\n\
+         \x20      oma-preview agent-help\n\
+         \x20      oma-preview --version"
     );
 }
 
 fn print_agent_help() {
-    const AGENT_HELP: &str = r##"Folio agent interface (JSON on stdout; diagnostics on stderr)
+    const AGENT_HELP: &str = r##"Oma Preview agent interface (JSON on stdout; diagnostics on stderr)
 
 Intended use: fill non-form PDFs, propose text/signature overlays, and assemble
 or slice pages while the user follows along. Default to `review`: it opens the
 proposal visibly so the user can correct placement and content before export.
 
-1. `folio inspect input.pdf`
+1. `oma-preview inspect input.pdf`
 2. Write a JSON spec, using normalized top-left coordinates (0.0 to 1.0).
-3. `folio review spec.json` to let the user inspect and adjust before export.
-4. Update that running window with `folio edit updated-spec.json`.
-   `folio status` returns the actual visible pages and annotations, including
+3. `oma-preview review spec.json` to let the user inspect and adjust before export.
+4. Update that running window with `oma-preview edit updated-spec.json`.
+   `oma-preview status` returns the actual visible pages and annotations, including
    user corrections. Reconcile these before replacing a proposal. `edit` waits
    for the UI to confirm loading and refuses while the user is typing.
-5. Use `folio apply spec.json` only for an explicitly unattended export.
-6. `folio verify output.pdf`
+5. Use `oma-preview apply spec.json` only for an explicitly unattended export.
+6. `oma-preview verify output.pdf`
 
 Spec:
 {
@@ -318,10 +318,10 @@ fn command_edit(args: &[String]) -> Result<()> {
     let _ = prepare_agent_spec(&spec_path, allow_signature)?;
     let before = live_state()?;
     if before["busy"] == true || before["editing"] == true {
-        bail!("Folio is busy or the user is typing; wait until editing finishes before retrying");
+        bail!("Oma Preview is busy or the user is typing; wait until editing finishes before retrying");
     }
     let revision = before["revision"].as_u64().unwrap_or(0);
-    let exe = env::current_exe().context("locate Folio executable")?;
+    let exe = env::current_exe().context("locate Oma Preview executable")?;
     let ui = ui_dir(&exe)?;
     let result = Command::new("qs")
         .args([
@@ -329,17 +329,17 @@ fn command_edit(args: &[String]) -> Result<()> {
             ui.to_string_lossy().as_ref(),
             "ipc",
             "call",
-            "folio",
+            "oma-preview",
             "loadReview",
             spec_path.to_string_lossy().as_ref(),
             if allow_signature { "true" } else { "false" },
         ])
         .output()
-        .context("contact the running Folio window")?;
+        .context("contact the running Oma Preview window")?;
     if !result.status.success() || String::from_utf8_lossy(&result.stdout).trim() != "true" {
         let detail = String::from_utf8_lossy(&result.stderr);
         bail!(
-            "no running Folio review accepted the edit{}",
+            "no running Oma Preview review accepted the edit{}",
             if detail.trim().is_empty() {
                 String::new()
             } else {
@@ -351,13 +351,13 @@ fn command_edit(args: &[String]) -> Result<()> {
     loop {
         let state = live_state()?;
         if let Some(error) = state["error"].as_str().filter(|s| !s.is_empty()) {
-            bail!("Folio could not load the proposal: {error}");
+            bail!("Oma Preview could not load the proposal: {error}");
         }
         if state["revision"].as_u64().unwrap_or(0) > revision {
             break;
         }
         if std::time::Instant::now() >= deadline {
-            bail!("Folio has not confirmed the update; inspect `folio status` before retrying");
+            bail!("Oma Preview has not confirmed the update; inspect `oma-preview status` before retrying");
         }
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
@@ -373,7 +373,7 @@ fn command_edit(args: &[String]) -> Result<()> {
 }
 
 fn live_state() -> Result<Value> {
-    let exe = env::current_exe().context("locate Folio executable")?;
+    let exe = env::current_exe().context("locate Oma Preview executable")?;
     let ui = ui_dir(&exe)?;
     let result = Command::new("qs")
         .args([
@@ -381,15 +381,15 @@ fn live_state() -> Result<Value> {
             ui.to_string_lossy().as_ref(),
             "ipc",
             "call",
-            "folio",
+            "oma-preview",
             "state",
         ])
         .output()
-        .context("contact the running Folio window")?;
+        .context("contact the running Oma Preview window")?;
     if !result.status.success() {
-        bail!("cannot read Folio's live state; open a review using this version of Folio first");
+        bail!("cannot read Oma Preview's live state; open a review using this version of Oma Preview first");
     }
-    serde_json::from_slice(&result.stdout).context("read Folio live state")
+    serde_json::from_slice(&result.stdout).context("read Oma Preview live state")
 }
 
 struct PreparedSpec {
@@ -439,7 +439,7 @@ fn prepare_agent_spec(spec_path: &Path, allow_signature: bool) -> Result<Prepare
             );
         }
         let strokes: Vec<Vec<Point>> = read_json(&signature_path())
-            .context("no saved signature is available; draw one in the Folio GUI first")?;
+            .context("no saved signature is available; draw one in the Oma Preview GUI first")?;
         if strokes.is_empty() {
             bail!("the saved signature is empty");
         }
@@ -516,7 +516,7 @@ fn spec_path_arg(command: &str, args: &[String]) -> Result<PathBuf> {
     let spec_arg = args
         .iter()
         .find(|arg| !arg.starts_with('-'))
-        .ok_or_else(|| anyhow!("usage: folio {command} SPEC.json [--allow-saved-signature]"))?;
+        .ok_or_else(|| anyhow!("usage: oma-preview {command} SPEC.json [--allow-saved-signature]"))?;
     fs::canonicalize(spec_arg).with_context(|| format!("open {spec_arg}"))
 }
 
@@ -544,7 +544,7 @@ fn command_verify(args: &[String]) -> Result<()> {
 
 fn single_path_arg<'a>(command: &str, args: &'a [String]) -> Result<&'a str> {
     if args.len() != 1 {
-        bail!("usage: folio {command} PDF");
+        bail!("usage: oma-preview {command} PDF");
     }
     Ok(&args[0])
 }
@@ -643,17 +643,17 @@ fn launch_quickshell(
     review_spec: Option<PathBuf>,
     allow_saved_signature: bool,
 ) -> Result<()> {
-    let exe = env::current_exe().context("locate Folio executable")?;
+    let exe = env::current_exe().context("locate Oma Preview executable")?;
     let ui = ui_dir(&exe)?;
 
     let mut command = Command::new("qs");
     command
         .args(["-p", ui.to_string_lossy().as_ref()])
-        .env("FOLIO_BIN", exe)
-        .env("FOLIO_PATHS", serde_json::to_string(&paths)?);
+        .env("OMA_PREVIEW_BIN", exe)
+        .env("OMA_PREVIEW_PATHS", serde_json::to_string(&paths)?);
     if let Some(spec) = review_spec {
-        command.env("FOLIO_REVIEW_SPEC", spec).env(
-            "FOLIO_ALLOW_SAVED_SIGNATURE",
+        command.env("OMA_PREVIEW_REVIEW_SPEC", spec).env(
+            "OMA_PREVIEW_ALLOW_SAVED_SIGNATURE",
             if allow_saved_signature { "1" } else { "0" },
         );
     }
@@ -667,13 +667,13 @@ fn launch_quickshell(
 }
 
 fn ui_dir(exe: &Path) -> Result<PathBuf> {
-    let ui = env::var_os("FOLIO_UI_DIR")
+    let ui = env::var_os("OMA_PREVIEW_UI_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
             let beside = exe
                 .parent()
                 .unwrap_or(Path::new("."))
-                .join("../share/folio/ui");
+                .join("../share/oma-preview/ui");
             if beside.exists() {
                 beside
             } else {
@@ -681,7 +681,7 @@ fn ui_dir(exe: &Path) -> Result<PathBuf> {
             }
         });
     if !ui.join("shell.qml").exists() {
-        bail!("Folio UI was not found at {}", ui.display());
+        bail!("Oma Preview UI was not found at {}", ui.display());
     }
     Ok(ui)
 }
@@ -881,7 +881,7 @@ fn export(dest: &Path, pages: &[PageRef], annotations: &[Annotation]) -> Result<
     if let Ok(destination) = fs::canonicalize(dest) {
         for page in pages {
             if fs::canonicalize(&page.path).ok().as_ref() == Some(&destination) {
-                bail!("choose a different output file; Folio never overwrites a source PDF");
+                bail!("choose a different output file; Oma Preview never overwrites a source PDF");
             }
         }
     }
@@ -1077,6 +1077,7 @@ fn safe_color(value: &str) -> &str {
 }
 
 fn data_dir() -> PathBuf {
+    // Preserve Folio's private storage across the application rename.
     dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("folio")

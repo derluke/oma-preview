@@ -14,9 +14,9 @@ jobs:
         run: |
           cargo test --locked
           cargo build --release --locked
-          desktop-file-validate data/org.omarchy.folio.desktop
-          target/release/folio --version
+          desktop-file-validate data/org.omarchy.oma-preview.desktop
+          target/release/oma-preview --version
       - uses: actions/upload-artifact@v4
         with:
-          name: folio-linux-x86_64
-          path: target/release/folio
+          name: oma-preview-linux-x86_64
+          path: target/release/oma-preview
