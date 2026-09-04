@@ -60,8 +60,11 @@ with tempfile.TemporaryDirectory(prefix='oma-history-') as scratch:
     shell = work/'ui/shell.qml'
     shell.write_text(shell.read_text().replace('ShellId oma-preview', 'ShellId '+work.name)
                      .replace('        Component.onCompleted: {', harness+'\n        Component.onCompleted: {'))
-    env = dict(os.environ, QT_QPA_PLATFORM='offscreen', QT_QUICK_BACKEND='software',
-               QSG_RHI_BACKEND='opengl', OMA_PREVIEW_BIN=os.environ.get('OMA_PREVIEW_TEST_BIN', str(root/'target/debug/oma-preview')),
+    platform = os.environ.get('OMA_PREVIEW_TEST_PLATFORM', 'offscreen')
+    env = dict(os.environ, QT_QPA_PLATFORM=platform,
+               QT_QUICK_BACKEND='software' if platform == 'offscreen' else 'rhi',
+               QSG_RHI_BACKEND='opengl' if platform == 'offscreen' else 'vulkan',
+               OMA_PREVIEW_BIN=os.environ.get('OMA_PREVIEW_TEST_BIN', str(root/'target/debug/oma-preview')),
                OMA_PREVIEW_PATHS=json.dumps([str(pdf)]), OMA_PREVIEW_REVIEW_SPEC='',
                XDG_STATE_HOME=str(work/'state'), XDG_DATA_HOME=str(work/'data'))
     try:

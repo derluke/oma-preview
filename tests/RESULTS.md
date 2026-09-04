@@ -1,5 +1,14 @@
 # 0.8.2 release checks
 
+- Published x86-64 package installed successfully in a fresh hosted Arch container:
+  [install run](https://github.com/derluke/oma-preview/actions/runs/33926108067).
+  `pacman -Qkk`, version check, installed-UI dialogs and history rendering pass.
+- A second physical Omarchy x86-64 desktop upgraded from 0.8.0 to 0.8.2.
+  Package SHA-256 matched the release artifact; all 32 installed files were intact.
+  Installed-UI offscreen checks passed, followed by the history rendering test
+  in its real Wayland/Vulkan session (Qt 6.11.2, Quickshell 0.3.1).
+  This used controlled in-window test actions, not global keyboard/mouse injection;
+  it is not a claim of a complete manual interaction sweep on that machine.
 - Six Rust/CLI tests and six input-guard unit tests pass locally.
 - Offscreen dialog and toolbar tests pass at 640, 800 and 1040px widths.
 - `tests/history-render.py` exercises first/last-page deletion, undo, redo and
@@ -9,6 +18,9 @@
   the published Arch package in a fresh hosted environment and runs the same
   dialog/history checks against its installed UI and backend. Consult the run
   result for the specific version; this is not a physical Wayland desktop test.
+
+For a deliberate visible desktop regression run, `OMA_PREVIEW_TEST_PLATFORM=wayland`
+opts the history test into Wayland/Vulkan. Offscreen is the safe default.
 
 # 0.7.0 desktop validation
 
