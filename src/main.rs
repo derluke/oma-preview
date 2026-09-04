@@ -318,7 +318,9 @@ fn command_edit(args: &[String]) -> Result<()> {
     let _ = prepare_agent_spec(&spec_path, allow_signature)?;
     let before = live_state()?;
     if before["busy"] == true || before["editing"] == true {
-        bail!("Oma Preview is busy or the user is typing; wait until editing finishes before retrying");
+        bail!(
+            "Oma Preview is busy or the user is typing; wait until editing finishes before retrying"
+        );
     }
     let revision = before["revision"].as_u64().unwrap_or(0);
     let exe = env::current_exe().context("locate Oma Preview executable")?;
@@ -357,7 +359,9 @@ fn command_edit(args: &[String]) -> Result<()> {
             break;
         }
         if std::time::Instant::now() >= deadline {
-            bail!("Oma Preview has not confirmed the update; inspect `oma-preview status` before retrying");
+            bail!(
+                "Oma Preview has not confirmed the update; inspect `oma-preview status` before retrying"
+            );
         }
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
@@ -387,7 +391,9 @@ fn live_state() -> Result<Value> {
         .output()
         .context("contact the running Oma Preview window")?;
     if !result.status.success() {
-        bail!("cannot read Oma Preview's live state; open a review using this version of Oma Preview first");
+        bail!(
+            "cannot read Oma Preview's live state; open a review using this version of Oma Preview first"
+        );
     }
     serde_json::from_slice(&result.stdout).context("read Oma Preview live state")
 }
@@ -516,7 +522,9 @@ fn spec_path_arg(command: &str, args: &[String]) -> Result<PathBuf> {
     let spec_arg = args
         .iter()
         .find(|arg| !arg.starts_with('-'))
-        .ok_or_else(|| anyhow!("usage: oma-preview {command} SPEC.json [--allow-saved-signature]"))?;
+        .ok_or_else(|| {
+            anyhow!("usage: oma-preview {command} SPEC.json [--allow-saved-signature]")
+        })?;
     fs::canonicalize(spec_arg).with_context(|| format!("open {spec_arg}"))
 }
 
@@ -621,9 +629,23 @@ fn validate_color(value: &str) -> Result<()> {
 }
 
 fn launch_gui(args: &[String]) -> Result<()> {
-    let mut paths = args
-        .iter()
-        .filter(|a| a.as_str() != "--gui")
+    let mut filenames = Vec::new();
+    let mut positional_only = false;
+    for arg in args {
+        if !positional_only && arg == "--" {
+            positional_only = true;
+        } else if !positional_only && arg == "--gui" {
+            continue;
+        } else if !positional_only && arg.starts_with('-') {
+            bail!(
+                "Unknown option '{arg}'.\nUse 'oma-preview --version' for the version, or 'oma-preview --help' for usage."
+            );
+        } else {
+            filenames.push(arg);
+        }
+    }
+    let mut paths = filenames
+        .into_iter()
         .map(|p| {
             fs::canonicalize(p)
                 .unwrap_or_else(|_| PathBuf::from(p))
@@ -643,6 +665,16 @@ fn launch_quickshell(
     review_spec: Option<PathBuf>,
     allow_saved_signature: bool,
 ) -> Result<()> {
+    let has_display = ["WAYLAND_DISPLAY", "DISPLAY"]
+        .iter()
+        .any(|key| env::var_os(key).is_some_and(|value| !value.is_empty()));
+    let platform = env::var("QT_QPA_PLATFORM").unwrap_or_default();
+    let headless_platform = matches!(platform.split(':').next(), Some("offscreen" | "minimal"));
+    if !has_display && !headless_platform {
+        bail!(
+            "Oma Preview needs a graphical desktop to open a window.\nNo Wayland or X11 display is available in this session.\nIf you are connected over SSH, open Oma Preview from a terminal on the remote computer's desktop instead.\nCommands such as 'oma-preview --version', 'oma-preview inspect FILE.pdf' and 'oma-preview verify FILE.pdf' work without a display."
+        );
+    }
     let exe = env::current_exe().context("locate Oma Preview executable")?;
     let ui = ui_dir(&exe)?;
 

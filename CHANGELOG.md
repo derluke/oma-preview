@@ -1,3 +1,9 @@
+# Unreleased
+
+- Reject unknown GUI options with CLI help instead of launching Qt.
+- Explain missing display sessions (including SSH) before starting Quickshell.
+- Keep version/help and document inspection available without a desktop.
+
 # 0.8.0
 
 - Renamed Folio to Oma Preview (`oma-preview`), retaining private saved data.
