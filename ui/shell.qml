@@ -537,7 +537,7 @@ ShellRoot {
                                     anchors.fill: parent
                                     document: thumbnailDocument
                                     currentFrame: Math.max(0, pageRow.page - 1)
-                                    sourceSize: Qt.size(150, 144)
+                                    sourceSize.width: 150
                                     asynchronous: true
                                     fillMode: Image.PreserveAspectFit
                                 }
