@@ -3,6 +3,7 @@
 # Local test and export artifacts
 /tmp/
 /output/
+__pycache__/
 /packaging/src/
 /packaging/pkg/
 /packaging/*.tar.gz

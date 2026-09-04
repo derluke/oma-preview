@@ -55,6 +55,8 @@ ShellRoot {
         property bool applyingLiveReview: false
         property int reviewRevision: 0
         property string reviewError: ""
+        readonly property string activeDialog: openDialog.visible ? "open" : addDialog.visible ? "add" : saveDialog.visible ? "save" : signatureDialog.visible ? "signature" : closeDialog.visible ? "close" : recentMenu.visible ? "recent" : ""
+        readonly property bool modalActive: activeDialog.length > 0
         property var undoStack: []
         property var redoStack: []
         property var historyHead: null
@@ -80,7 +82,7 @@ ShellRoot {
             historyHead = next
         }
         function travelHistory(redo) {
-            if (busy || loadingWorkspace || editingAnnotation >= 0) return
+            if (busy || loadingWorkspace || modalActive || editingAnnotation >= 0) return
             var stack = redo ? redoStack : undoStack
             if (!stack.length) return
             var target = stack[stack.length - 1]
@@ -304,7 +306,7 @@ ShellRoot {
             backend.exportPdf(path, pagePayload(), annotationPayload())
         }
         function applyLiveReview(path, allowSavedSignature) {
-            if (busy || editingAnnotation >= 0) return false
+            if (busy || modalActive || editingAnnotation >= 0) return false
             saveDraftNow()
             reviewError = ""
             applyingLiveReview = true
@@ -924,6 +926,8 @@ ShellRoot {
 
         FileDialog {
             id: openDialog; title: "Open PDF"; fileMode: FileDialog.OpenFiles; nameFilters: ["PDF documents (*.pdf)"]
+            // Keep GTK/Tracker file search out of our process (native dialog crash).
+            options: FileDialog.DontUseNativeDialog
             onAccepted: { var p=[]; for(var i=0;i<selectedFiles.length;i++) p.push(window.fromUrl(selectedFiles[i])); window.replaceWorkspace(p) }
         }
         Menu {
@@ -948,10 +952,12 @@ ShellRoot {
         }
         FileDialog {
             id: addDialog; title: "Add PDF"; fileMode: FileDialog.OpenFiles; nameFilters: ["PDF documents (*.pdf)"]
+            options: FileDialog.DontUseNativeDialog
             onAccepted: { var p=[]; for(var i=0;i<selectedFiles.length;i++) p.push(window.fromUrl(selectedFiles[i])); window.openPaths(p, false) }
         }
         FileDialog {
             id: saveDialog; title: "Save PDF as"; fileMode: FileDialog.SaveFile; defaultSuffix: "pdf"; nameFilters: ["PDF document (*.pdf)"]
+            options: FileDialog.DontUseNativeDialog
             currentFile: window.suggestedOutput ? window.fileUri(window.suggestedOutput) : ""
             onAccepted: window.saveTo(window.fromUrl(selectedFile))
             onRejected: window.closeAfterExport = false
@@ -992,21 +998,21 @@ ShellRoot {
         }
         Timer { id: statusTimer; interval: 4500; onTriggered: window.statusText = "" }
         Timer { id: draftTimer; interval: 600; onTriggered: window.saveDraftNow() }
-        Shortcut { sequence: "Ctrl+O"; onActivated: openDialog.open() }
-        Shortcut { sequence: "Ctrl+Z"; enabled: window.editingAnnotation < 0; onActivated: window.travelHistory(false) }
-        Shortcut { sequences: ["Ctrl+Shift+Z", "Ctrl+Y"]; enabled: window.editingAnnotation < 0; onActivated: window.travelHistory(true) }
-        Shortcut { sequence: "Ctrl+Shift+O"; onActivated: addDialog.open() }
-        Shortcut { sequence: "Ctrl+Shift+S"; enabled: pages.count > 0; onActivated: saveDialog.open() }
-        Shortcut { sequence: "Ctrl+B"; enabled: pages.count > 0; onActivated: window.toggleBookmark() }
-        Shortcut { sequence: "Delete"; enabled: pages.count > 0 && window.editingAnnotation < 0; onActivated: window.deletePage() }
-        Shortcut { sequence: "Escape"; enabled: window.editingAnnotation >= 0 || window.tool !== "read" || window.selectedAnnotation >= 0; onActivated: window.cancelCurrentAction() }
-        Shortcut { sequence: "Return"; enabled: window.selectedKind === "text" && window.editingAnnotation < 0; onActivated: window.beginTextEdit(window.selectedAnnotation, false) }
-        Shortcut { sequence: "Left"; enabled: window.editingAnnotation < 0 && window.currentIndex > 0; onActivated: pageList.currentIndex-- }
-        Shortcut { sequence: "Right"; enabled: window.editingAnnotation < 0 && window.currentIndex + 1 < pages.count; onActivated: pageList.currentIndex++ }
-        Shortcut { sequence: "Ctrl+Home"; enabled: window.editingAnnotation < 0 && pages.count > 0; onActivated: pageList.currentIndex = 0 }
-        Shortcut { sequence: "Ctrl+End"; enabled: window.editingAnnotation < 0 && pages.count > 0; onActivated: pageList.currentIndex = pages.count - 1 }
-        Shortcut { sequence: "Ctrl++"; onActivated: window.zoom = Math.min(3, window.zoom + 0.15) }
-        Shortcut { sequence: "Ctrl+-"; onActivated: window.zoom = Math.max(0.5, window.zoom - 0.15) }
+        Shortcut { enabled: !window.modalActive; sequence: "Ctrl+O"; onActivated: openDialog.open() }
+        Shortcut { sequence: "Ctrl+Z"; enabled: !window.modalActive && (window.editingAnnotation < 0); onActivated: window.travelHistory(false) }
+        Shortcut { sequences: ["Ctrl+Shift+Z", "Ctrl+Y"]; enabled: !window.modalActive && (window.editingAnnotation < 0); onActivated: window.travelHistory(true) }
+        Shortcut { enabled: !window.modalActive; sequence: "Ctrl+Shift+O"; onActivated: addDialog.open() }
+        Shortcut { sequence: "Ctrl+Shift+S"; enabled: !window.modalActive && (pages.count > 0); onActivated: saveDialog.open() }
+        Shortcut { sequence: "Ctrl+B"; enabled: !window.modalActive && (pages.count > 0); onActivated: window.toggleBookmark() }
+        Shortcut { sequence: "Delete"; enabled: !window.modalActive && (pages.count > 0 && window.editingAnnotation < 0); onActivated: window.deletePage() }
+        Shortcut { sequence: "Escape"; enabled: !window.modalActive && (window.editingAnnotation >= 0 || window.tool !== "read" || window.selectedAnnotation >= 0); onActivated: window.cancelCurrentAction() }
+        Shortcut { sequence: "Return"; enabled: !window.modalActive && (window.selectedKind === "text" && window.editingAnnotation < 0); onActivated: window.beginTextEdit(window.selectedAnnotation, false) }
+        Shortcut { sequence: "Left"; enabled: !window.modalActive && (window.editingAnnotation < 0 && window.currentIndex > 0); onActivated: pageList.currentIndex-- }
+        Shortcut { sequence: "Right"; enabled: !window.modalActive && (window.editingAnnotation < 0 && window.currentIndex + 1 < pages.count); onActivated: pageList.currentIndex++ }
+        Shortcut { sequence: "Ctrl+Home"; enabled: !window.modalActive && (window.editingAnnotation < 0 && pages.count > 0); onActivated: pageList.currentIndex = 0 }
+        Shortcut { sequence: "Ctrl+End"; enabled: !window.modalActive && (window.editingAnnotation < 0 && pages.count > 0); onActivated: pageList.currentIndex = pages.count - 1 }
+        Shortcut { enabled: !window.modalActive; sequence: "Ctrl++"; onActivated: window.zoom = Math.min(3, window.zoom + 0.15) }
+        Shortcut { enabled: !window.modalActive; sequence: "Ctrl+-"; onActivated: window.zoom = Math.max(0.5, window.zoom - 0.15) }
 
         Component.onCompleted: {
             backend.getRecents()

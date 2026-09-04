@@ -8,11 +8,13 @@ jobs:
     container: archlinux:base-devel
     steps:
       - name: Install build and runtime dependencies
-        run: pacman -Syu --noconfirm git rust quickshell qt6-webengine qpdf poppler librsvg desktop-file-utils
+        run: pacman -Syu --noconfirm git rust quickshell qt6-webengine qpdf poppler librsvg desktop-file-utils python
       - uses: actions/checkout@v4
       - name: Build and test
         run: |
           cargo test --locked
+          python -m unittest discover -s tests -p 'test_*.py'
+          python tests/dialog-smoke.py
           cargo build --release --locked
           desktop-file-validate data/org.omarchy.oma-preview.desktop
           target/release/oma-preview --version

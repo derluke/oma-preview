@@ -14,11 +14,14 @@ import sys
 import tempfile
 import time
 
+if os.environ.get("OMA_PREVIEW_DEDICATED_TEST_DESKTOP") != "1":
+    raise SystemExit("Refusing global input: use a dedicated test desktop with OMA_PREVIEW_DEDICATED_TEST_DESKTOP=1.")
+
 ROOT = Path(__file__).resolve().parents[1]
 BIN = Path(os.environ.get("OMA_PREVIEW_TEST_BIN", ROOT / "target/release/oma-preview"))
 
 def run(args, **kwargs):
-    return sp.check_output([str(a) for a in args], text=True, **kwargs).strip()
+    return sp.check_output([str(a) for a in args], text=True, timeout=5, **kwargs).strip()
 
 with tempfile.TemporaryDirectory(prefix="oma-preview-corpus-") as scratch:
     work = Path(scratch)

@@ -1,3 +1,11 @@
+# Unreleased
+
+- Use Qt Quick Open/Add/Save dialogs instead of the GTK native dialog path.
+- Report process identity, active-window and modal state to agents; reject live
+  updates and document shortcuts while dialogs are open.
+- Gate legacy global-input tests behind a dedicated-test-desktop opt-in.
+- Add a fail-closed input guard and offscreen dialog regression tests to CI.
+
 # 0.8.1
 
 - Reject unknown GUI options with CLI help instead of launching Qt.

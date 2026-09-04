@@ -317,9 +317,9 @@ fn command_edit(args: &[String]) -> Result<()> {
     let spec_path = spec_path_arg("edit", args)?;
     let _ = prepare_agent_spec(&spec_path, allow_signature)?;
     let before = live_state()?;
-    if before["busy"] == true || before["editing"] == true {
+    if before["busy"] == true || before["editing"] == true || before["modal"] == true {
         bail!(
-            "Oma Preview is busy or the user is typing; wait until editing finishes before retrying"
+            "Oma Preview is busy, the user is typing, or a dialog is open; wait until the current interaction finishes before retrying"
         );
     }
     let revision = before["revision"].as_u64().unwrap_or(0);

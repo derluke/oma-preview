@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""Exercise actual Qt Quick dialogs offscreen, without compositor/global input."""
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import tempfile
+
+root = Path(__file__).resolve().parents[1]
+harness = '''
+        Timer {
+            interval: 250; running: true; repeat: true
+            property int phase: 0
+            onTriggered: {
+                var dialogs = [openDialog, addDialog, saveDialog, signatureDialog, closeDialog]
+                if (phase >= 10) {
+                    if (window.modalActive) throw new Error("Modal stuck after close")
+                    console.log("DIALOG_SMOKE_PASS")
+                    Qt.quit()
+                    return
+                }
+                var d = dialogs[Math.floor(phase / 2)]
+                if (phase % 2 === 0) {
+                    if (phase < 6 && !(d.options & FileDialog.DontUseNativeDialog)) throw new Error("Native dialog enabled")
+                    d.open()
+                } else {
+                    if (!d.visible || !window.modalActive) throw new Error("Dialog did not open")
+                    if (window.applyLiveReview("/nonexistent.json", false)) throw new Error("Live edit accepted under modal")
+                    d.close()
+                }
+                phase++
+            }
+        }
+'''
+with tempfile.TemporaryDirectory(prefix='oma-dialog-test-') as scratch:
+    work = Path(scratch)
+    shutil.copytree(root / 'ui', work / 'ui')
+    shell = work / 'ui/shell.qml'
+    shell.write_text(shell.read_text().replace('ShellId oma-preview', 'ShellId ' + work.name)
+                     .replace('        Component.onCompleted: {', harness + '\n        Component.onCompleted: {'))
+    env = dict(os.environ, QT_QPA_PLATFORM='offscreen', QT_QUICK_BACKEND='software',
+               QSG_RHI_BACKEND='opengl', OMA_PREVIEW_BIN=str(root / 'target/debug/oma-preview'),
+               OMA_PREVIEW_PATHS='[]', OMA_PREVIEW_REVIEW_SPEC='',
+               XDG_STATE_HOME=str(work/'state'), XDG_DATA_HOME=str(work/'data'))
+    with (work/'log').open('w+') as log:
+        p = subprocess.Popen(['qs', '-p', str(work/'ui')], env=env, stdout=log,
+                             stderr=log, start_new_session=True)
+        try:
+            p.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            pass
+        finally:
+            try: os.killpg(p.pid, signal.SIGTERM)
+            except ProcessLookupError: pass
+            p.wait(timeout=5)
+        log.seek(0)
+        output = log.read()
+        if 'DIALOG_SMOKE_PASS' not in output or 'Error:' in output:
+            raise SystemExit(output)
+        print('PASS: open/add/save/signature/close dialogs, modal state, live-edit rejection; no global input')

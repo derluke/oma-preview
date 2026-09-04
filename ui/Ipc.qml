@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import "."
 
@@ -48,6 +49,7 @@ QtObject {
             return JSON.stringify({ready:true, busy:w.busy, revision:w.reviewRevision,
                 error:w.reviewError, dirty:w.dirty, editing:w.editingAnnotation >= 0,
                 can_undo:w.undoStack.length > 0, can_redo:w.redoStack.length > 0,
+                pid:Number(Quickshell.processId), active:w.active, modal:w.modalActive, dialog:w.activeDialog,
                 selected_annotation:w.selectedAnnotation, tool:w.tool, zoom:w.zoom,
                 current_page:w.currentIndex + 1, output:w.suggestedOutput,
                 pages:w.pagePayload(), annotations:w.annotationPayload()})

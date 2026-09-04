@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "${OMA_PREVIEW_DEDICATED_TEST_DESKTOP:-}" != 1 ]]; then
+  echo 'Refusing global input: run only in a dedicated test desktop with OMA_PREVIEW_DEDICATED_TEST_DESKTOP=1.' >&2
+  exit 2
+fi
 
 ui_dir="${OMA_PREVIEW_UI_DIR:-$HOME/.local/share/oma-preview/ui}"
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
