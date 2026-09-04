@@ -6,13 +6,16 @@ pkgdesc='A small Omarchy-native PDF reader and editor with visible agent review'
 arch=('x86_64' 'aarch64')
 url='https://github.com/derluke/pdf'
 license=('MIT')
+options=('!debug')
 depends=('quickshell' 'qt6-declarative' 'qt6-webengine' 'qpdf' 'poppler' 'librsvg' 'gcc-libs' 'glibc')
 makedepends=('cargo')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('SKIP')
+sha256sums=('b54f48a206c69f1f3d073895db1c580a6e5face3a9d606a643a11e9c41470dbc')
 
 prepare() {
     cd "pdf-$pkgver"
+    # Packaged builds must not embed a developer checkout as a UI fallback.
+    sed -i 's#PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui")#PathBuf::from("/usr/share/folio/ui")#' src/main.rs
     cargo fetch --locked
 }
 

@@ -23,7 +23,7 @@ def run(args, **kwargs):
 with tempfile.TemporaryDirectory(prefix="folio-corpus-") as scratch:
     work = Path(scratch)
     ui = work / "ui"
-    shutil.copytree(ROOT / "ui", ui)
+    shutil.copytree(Path(os.environ.get("FOLIO_TEST_UI", ROOT / "ui")), ui)
     env = dict(os.environ, FOLIO_UI_DIR=str(ui), XDG_STATE_HOME=str(work / "state"),
                XDG_DATA_HOME=str(work / "data"))
     clicker = work / "click"
