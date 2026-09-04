@@ -455,22 +455,23 @@ ShellRoot {
             Rectangle {
                 id: toolbar
                 anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
-                height: 48
+                height: toolbarGroups.implicitHeight + 16
                 color: Theme.chrome
                 Rectangle { anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 1; color: Theme.hairline }
 
+                Flow {
+                    id: toolbarGroups
+                    anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
+                    anchors.margins: 8
+                    spacing: 8
                 Row {
-                    anchors.left: parent.left; anchors.leftMargin: 10; anchors.verticalCenter: parent.verticalCenter
                     spacing: 3
                     ToolButton { label: "Open"; onActivated: openDialog.open() }
                     ToolButton { label: "Pages"; chosen: window.sidebarVisible; enabled: pages.count > 0; onActivated: window.sidebarVisible = !window.sidebarVisible }
                     ToolButton { id: recentButton; label: "Recent"; onActivated: recentMenu.popup() }
                     ToolButton { label: "Add PDF"; onActivated: addDialog.open() }
-                    ToolButton { label: "↶"; enabled: window.undoStack.length > 0 && !window.busy && window.editingAnnotation < 0; onActivated: window.travelHistory(false) }
-                    ToolButton { label: "↷"; enabled: window.redoStack.length > 0 && !window.busy && window.editingAnnotation < 0; onActivated: window.travelHistory(true) }
                 }
                 Row {
-                    anchors.centerIn: parent
                     spacing: 3
                     ToolButton { label: "Read"; chosen: window.tool === "read"; onActivated: window.tool = "read" }
                     ToolButton { id: textButton; label: "Text"; chosen: window.tool === "text"; enabled: pages.count > 0; onActivated: window.tool = "text" }
@@ -480,10 +481,10 @@ ShellRoot {
                     ToolButton { label: "Draw signature…"; enabled: pages.count > 0; onActivated: signatureDialog.open() }
                 }
                 Row {
-                    anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
                     spacing: 3
                     ToolButton { label: window.isBookmarked() ? "Bookmarked" : "Bookmark"; chosen: window.isBookmarked(); enabled: pages.count > 0; onActivated: window.toggleBookmark() }
                     ToolButton { label: window.suggestedOutput ? "Review & export…" : "Save as…"; chosen: true; enabled: pages.count > 0 && !window.busy; onActivated: saveDialog.open() }
+                }
                 }
             }
 
@@ -558,13 +559,16 @@ ShellRoot {
                         MouseArea { id: rowTap; anchors.fill: parent; hoverEnabled: true; onClicked: pageList.currentIndex = index }
                     }
                 }
-                Row {
+                Column {
                     id: pageActions
                     anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 8
-                    spacing: 2
-                    ToolButton { compact: true; label: "↑"; enabled: window.currentIndex > 0; onActivated: window.movePage(-1) }
-                    ToolButton { compact: true; label: "↓"; enabled: window.currentIndex >= 0 && window.currentIndex + 1 < pages.count; onActivated: window.movePage(1) }
-                    ToolButton { compact: true; label: "−"; danger: true; enabled: pages.count > 1; onActivated: window.deletePage() }
+                    spacing: 4
+                    Row {
+                        spacing: 4
+                        ToolButton { width: 82; height: 36; label: "Move up"; enabled: window.currentIndex > 0; onActivated: window.movePage(-1) }
+                        ToolButton { width: 82; height: 36; label: "Move down"; enabled: window.currentIndex >= 0 && window.currentIndex + 1 < pages.count; onActivated: window.movePage(1) }
+                    }
+                    ToolButton { width: 168; height: 36; label: "Remove page"; danger: true; enabled: pages.count > 1; onActivated: window.deletePage() }
                 }
             }
 

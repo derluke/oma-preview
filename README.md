@@ -1,9 +1,29 @@
 # Oma Preview
 
-Oma Preview is a small PDF reader/editor shaped for Omarchy. Rust handles document
-inspection, page assembly, and Unicode-capable vector overlays; Quickshell handles a thin,
-theme-aware interface. Rendering is provided by QtQuick.Pdf, while qpdf keeps
-page extraction and concatenation structurally safe.
+A small PDF reader and editor for Omarchy. Read, fill, sign, and rearrange pages.
+Work by hand or let an agent fill the document in front of you, then make your
+corrections before saving. Your originals stay untouched.
+
+![Oma Preview editing a sample PDF in Tokyo Night](https://github.com/derluke/oma-preview/releases/download/v0.8.1/01-tokyo-night.png)
+
+[Watch the demo · 52 seconds](https://github.com/derluke/oma-preview/releases/download/v0.8.1/oma-preview-conversation-edited.mp4)
+— a conversation, a correction, and a finished PDF. Pauses cut; editing sped up.
+
+<details>
+<summary>Light and warm themes</summary>
+
+Catppuccin Latte
+
+![Oma Preview in Catppuccin Latte](https://github.com/derluke/oma-preview/releases/download/v0.8.1/02-catppuccin-latte.png)
+
+Gruvbox
+
+![Oma Preview in Gruvbox](https://github.com/derluke/oma-preview/releases/download/v0.8.1/03-gruvbox.png)
+
+</details>
+
+These are development previews, newer than the 0.8.1 package. The screenshots
+show the latest controls; the video predates that polish. All form details are fictional.
 
 ## What works
 
@@ -20,8 +40,8 @@ page extraction and concatenation structurally safe.
 
 The original documents are never modified. `Save as…` writes a fresh PDF.
 
-Use **Ctrl+Z** to undo and **Ctrl+Shift+Z** or **Ctrl+Y** to redo, or the
-↶ / ↷ toolbar buttons. While typing, undo affects the text editor; after
+Use **Ctrl+Z** to undo and **Ctrl+Shift+Z** or **Ctrl+Y** to redo.
+While typing, undo affects the text editor; after
 finishing, the text edit is one document-level step. Moves and resizes are
 one step per gesture. Deleted pages return with their annotations. Adding PDFs
 and live agent proposals are undoable too. Export retains session history,
@@ -106,9 +126,9 @@ Text and signatures can be dragged after placement. Selected text shows an
 open-hand cursor; drag for a closed hand and constrained page movement. Click
 **Edit**, double-click, or press Enter to edit; click outside to finish. Escape
 cancels a new field or discards changes to existing text. Delete removes a
-selection, either from the keyboard or the visible contextual button. Page
-arrows at the bottom of the rail change page order; the minus button slices a
-page out.
+selection, either from the keyboard or the visible contextual button. **Move up**
+and **Move down** at the bottom of the sidebar change page order;
+**Remove page** slices a page out. The toolbar wraps to fit narrower windows.
 
 Selected text has a right-edge handle for changing the field width without
 changing its font size. Selected signatures have a corner handle that resizes
@@ -145,7 +165,7 @@ reopening through the actual Recent menu in an isolated state directory.
 
 Oma Preview treats filling as visible text/signature overlays instead of exposing the
 complexity of PDF form internals. The useful next additions are search/copy,
-rotate, undo, and print/share. They should remain secondary commands rather
+rotate, and print/share. They should remain secondary commands rather
 than becoming permanent toolbar furniture.
 
 Signatures are stored as normalized vector strokes in
@@ -153,3 +173,6 @@ Signatures are stored as normalized vector strokes in
 `~/.local/state/folio/bookmarks.json`. These legacy Folio storage paths and draft
 fingerprints are intentionally retained, so upgrading to Oma Preview preserves
 drafts, recents, bookmarks and saved signatures without copying private data.
+
+Built with Rust and Quickshell. QtQuick.Pdf renders documents; qpdf handles
+page extraction and concatenation; Rust writes Unicode-capable vector overlays.

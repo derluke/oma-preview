@@ -16,6 +16,20 @@ harness = '''
                 var dialogs = [openDialog, addDialog, saveDialog, signatureDialog, closeDialog]
                 if (phase >= 10) {
                     if (window.modalActive) throw new Error("Modal stuck after close")
+                    if (phase === 10) { window.width = 640; phase++; return }
+                    var groups = toolbarGroups.children
+                    for (var i = 0; i < groups.length; i++) {
+                        var a = groups[i]
+                        if (a.x + a.width > toolbarGroups.width + 1 || a.y + a.height > toolbar.height - 8 + 1)
+                            throw new Error("Toolbar group clipped")
+                        for (var j = i + 1; j < groups.length; j++) {
+                            var b = groups[j]
+                            if (a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height)
+                                throw new Error("Toolbar groups overlap")
+                        }
+                    }
+                    if (phase === 11) { window.width = 1040; phase++; return }
+                    if (phase === 12) { window.width = 800; phase++; return }
                     console.log("DIALOG_SMOKE_PASS")
                     Qt.quit()
                     return
