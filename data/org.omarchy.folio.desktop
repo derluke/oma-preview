@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Folio
+GenericName=PDF Viewer
+Comment=Read, fill, sign, and rearrange PDFs
+Exec=folio --gui %F
+Icon=org.omarchy.folio
+Terminal=false
+Categories=Office;Viewer;
+MimeType=application/pdf;
+Keywords=pdf;preview;sign;fill;merge;split;
+StartupWMClass=org.omarchy.folio

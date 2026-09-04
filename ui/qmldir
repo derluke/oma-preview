@@ -1,0 +1,6 @@
+module folio
+singleton Theme 1.0 Theme.qml
+Backend 1.0 Backend.qml
+ToolButton 1.0 ToolButton.qml
+SignatureDialog 1.0 SignatureDialog.qml
+Ipc 1.0 Ipc.qml
