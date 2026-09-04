@@ -20,6 +20,9 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          # The minimal Arch image excludes documentation. Install every file
+          # so the package integrity check matches a normal desktop install.
+          sed -i '/^NoExtract/d' /etc/pacman.conf
           curl --fail --location --output /tmp/oma-preview.pkg.tar.zst "https://github.com/derluke/oma-preview/releases/download/v$VERSION/oma-preview-$VERSION-1-x86_64.pkg.tar.zst"
           pacman -U --noconfirm /tmp/oma-preview.pkg.tar.zst
           pacman -Qkk oma-preview
