@@ -1,6 +1,6 @@
 # Maintainer: Lukas Innig (derluke on GitHub)
 pkgname=oma-preview
-pkgver=0.8.0
+pkgver=0.8.1
 pkgrel=1
 pkgdesc='A small Omarchy-native PDF reader and editor with visible agent review'
 arch=('x86_64' 'aarch64')

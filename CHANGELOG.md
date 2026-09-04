@@ -1,4 +1,4 @@
-# Unreleased
+# 0.8.1
 
 - Reject unknown GUI options with CLI help instead of launching Qt.
 - Explain missing display sessions (including SSH) before starting Quickshell.

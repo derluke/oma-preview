@@ -1,6 +1,6 @@
 [package]
 name = "oma-preview"
-version = "0.8.0"
+version = "0.8.1"
 edition = "2024"
 description = "A small, Omarchy-native PDF reader and editor"
 license = "MIT"
