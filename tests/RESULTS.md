@@ -1,0 +1,35 @@
+# 0.7.0 desktop validation
+
+Tested on Omarchy, Qt 6.11.2 / Quickshell 0.3.1, Wayland with Vulkan rendering.
+Times include process startup, inspection, Qt loading, and IPC polling for the
+first visible page. Page-turn measurements include keyboard input and polling,
+not just rasterization. These are warm-cache local measurements, not guarantees
+for other machines. An initial IRS run took 11.9 seconds; subsequent runs took
+0.46–0.48 seconds. That cold-start outlier remains a performance caveat.
+
+| PDF | Pages | Size | Inspect | First visible | Sampled page turns |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| IRS W-9 (native form) | 6 | 138 KiB | 19–29 ms | 456–481 ms | 70–80 ms |
+| Bash reference manual | 214 | 836 KiB | 40 ms | 556 ms | 71–74 ms |
+| NASA FY2024 financial report | 127 | 15.7 MiB | 66 ms | 575 ms | 70–243 ms |
+| Repeated Bash stress document | 2,140 | 3.3 MiB | 201 ms | 696 ms | 68–73 ms |
+
+The stress document repeats the real manual ten times; shared resources keep
+its byte size small. NASA is the image-heavy, larger-byte-size case.
+
+All cases passed bookmark save/reopen and the actual Recent menu click flow.
+Exports passed qpdf structural validation and visual checks of the changed
+first page. The W-9 preserved all 27 canonical native fields and their values;
+Folio overlays do not populate native field values. Export took 0.18 seconds
+(W-9), 2.58 seconds (Bash), and 2.12 seconds (NASA).
+
+Sources (download separately; PDFs are not redistributed in this repository):
+
+- https://www.irs.gov/pub/irs-pdf/fw9.pdf
+- https://www.gnu.org/software/bash/manual/bash.pdf
+- https://www.nasa.gov/wp-content/uploads/2023/11/nasa-fy-2024-afr-1.pdf
+
+Reproduce with `tests/corpus-smoke.py` and `tests/corpus-export.py`. The latter
+requires pypdf. UI tests require Hyprland, uinput access, wtype, and a C compiler.
+Existing pointer-flow and pinch-flow tests cover text entry, cancel, multiline,
+moving, formatting, resizing, synthetic signature placement, delete, and closing.

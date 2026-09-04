@@ -8,6 +8,7 @@ Rectangle {
     property bool chosen: false
     property bool compact: false
     property bool danger: false
+    property color labelColor: danger ? Theme.urgent : Theme.foreground
     implicitWidth: compact ? 32 : Math.max(48, text.implicitWidth + 20)
     implicitHeight: 30
     radius: Theme.radius
@@ -20,7 +21,7 @@ Rectangle {
         id: text
         anchors.centerIn: parent
         text: root.label
-        color: root.danger ? Theme.urgent : Theme.foreground
+        color: root.labelColor
         font.family: Theme.fontFamily
         font.pixelSize: Theme.smallSize
     }

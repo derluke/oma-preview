@@ -1,0 +1,4 @@
+interface:
+  display_name: "Folio PDF"
+  short_description: "Fill and review PDFs visibly in Folio"
+  default_prompt: "Use $folio-pdf to fill this PDF and let me review it before export."

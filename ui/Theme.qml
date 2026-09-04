@@ -41,4 +41,15 @@ QtObject {
         onLoaded: root.load(text())
         onFileChanged: reload()
     }
+
+    // Omarchy atomically replaces the whole current/theme directory. A watcher
+    // on colors.toml remains attached to the removed inode, while theme.name is
+    // a stable file that Omarchy rewrites after the swap. Reopen the palette
+    // through its path whenever that stable signal changes.
+    property FileView themeName: FileView {
+        path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme.name"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: colors.reload()
+    }
 }

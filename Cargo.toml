@@ -1,6 +1,6 @@
 [package]
 name = "folio"
-version = "0.2.1"
+version = "0.7.0"
 edition = "2024"
 description = "A small, Omarchy-native PDF reader and editor"
 license = "MIT"
@@ -10,6 +10,7 @@ anyhow = "1.0"
 dirs = "6.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sha2 = "0.10"
 tempfile = "3.23"
 
 [profile.release]

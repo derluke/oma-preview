@@ -8,10 +8,15 @@ Folio exposes a stable JSON CLI for PDF work. Prefer it to GUI automation.
 3. Run `folio review SPEC.json`. This opens the proposed work in Folio so the
    user can follow it, correct text/placement/page order, and choose when to
    export.
-4. Use `folio apply SPEC.json` only when the user explicitly requests an
+4. While that window remains open, update the spec and run `folio edit SPEC.json`
+   to replace the visible proposal without restarting Folio.
+   First run `folio status` and reconcile any user corrections with the spec.
+   The update replaces the proposal; it is not a merge. It waits for UI
+   confirmation and refuses while the user is typing or Folio is busy.
+5. Use `folio apply SPEC.json` only when the user explicitly requests an
    unattended/headless export.
-5. Run `folio verify OUTPUT.pdf` after export.
-6. Render every changed page with `pdftoppm` and visually inspect it.
+6. Run `folio verify OUTPUT.pdf` after export.
+7. Render every changed page with `pdftoppm` and visually inspect it.
 
 Run `folio agent-help` for the current schema and an example. Paths in a spec
 are resolved relative to the spec file. Page selections accept `all`, individual

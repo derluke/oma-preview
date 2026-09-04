@@ -5,11 +5,15 @@ import QtQuick
 Item {
     id: root
     signal inspected(int id, string path, var pages)
+    signal recentsLoaded(var paths)
     signal exported(int id, string path)
     signal signatureLoaded(var strokes)
     signal signatureSaved()
     signal bookmarksLoaded(string path, var pages)
     signal reviewLoaded(string output, var pages, var annotations)
+    signal draftLoaded(var draft)
+    signal draftSaved()
+    signal draftDeleted()
     signal failed(string message)
     signal quitReady()
 
@@ -19,6 +23,9 @@ Item {
     property bool quitting: false
 
     function nextId() { sequence += 1; return sequence }
+    function getRecents() { send({c:"recents_get", id:nextId()}) }
+    function clearRecents() { send({c:"recents_clear", id:nextId()}) }
+    function addRecent(path) { send({c:"recent_add", id:nextId(), path:path}) }
     function send(value) {
         var line = JSON.stringify(value) + "\n"
         if (queueing) { pending.push(line); return }
@@ -32,6 +39,9 @@ Item {
     function getBookmarks(path) { send({c:"bookmarks_get", id:nextId(), path:path}) }
     function saveBookmarks(path, pages) { send({c:"bookmarks_save", id:nextId(), path:path, pages:pages}) }
     function loadSpec(path, allowSavedSignature) { send({c:"load_spec", id:nextId(), path:path, allow_saved_signature:allowSavedSignature}) }
+    function loadDraft(key) { send({c:"draft_get", id:nextId(), key:key}) }
+    function saveDraft(key, draft) { send({c:"draft_save", id:nextId(), key:key, draft:draft}) }
+    function deleteDraft(key) { send({c:"draft_delete", id:nextId(), key:key}) }
     function quit() {
         if (quitting) return
         quitting = true
@@ -43,11 +53,15 @@ Item {
         var m
         try { m = JSON.parse(line) } catch (e) { failed("The document service returned an unreadable response."); return }
         if (m.t === "inspected") inspected(m.id, m.path, m.pages || [])
+        else if (m.t === "recents") recentsLoaded(m.paths || [])
         else if (m.t === "exported") exported(m.id, m.path)
         else if (m.t === "signature") signatureLoaded(m.strokes || [])
         else if (m.t === "signature_saved") signatureSaved()
         else if (m.t === "bookmarks") bookmarksLoaded(m.path, m.pages || [])
         else if (m.t === "review_loaded") reviewLoaded(m.output || "", m.pages || [], m.annotations || [])
+        else if (m.t === "draft_loaded") draftLoaded(m.draft)
+        else if (m.t === "draft_saved") draftSaved()
+        else if (m.t === "draft_deleted") draftDeleted()
         else if (m.t === "quit_ready") quitReady()
         else if (m.t === "error") failed(m.msg || "The operation failed.")
     }

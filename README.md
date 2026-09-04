@@ -8,15 +8,26 @@ page extraction and concatenation structurally safe.
 ## What works
 
 - Fast PDF reading with keyboard paging and zoom
+- Native touchpad/touchscreen pinch-to-zoom, anchored under the gesture
 - Text placed anywhere, including on PDFs with no form fields
 - Draw a signature once, retain it locally, and place it again later
 - Open several PDFs, reorder or remove pages, and save the result
 - Per-document reading bookmarks
-- Active Omarchy colors and a native Wayland window
+- Live Omarchy colours and a native Wayland window; running windows follow theme changes
+- Contextual text formatting (size, Sans/Serif/Mono, black/blue/red) and signature sizing
 
 The original documents are never modified. `Save as…` writes a fresh PDF.
 
+Edits are atomically autosaved as private, source-fingerprinted JSON drafts in
+`~/.local/state/folio/drafts`. Reopening the same source restores its workspace.
+Closing with unexported edits offers Save PDF, Keep draft, Discard, and Cancel;
+a crash or forced shutdown is covered by the same autosave.
+
 ## Run and install
+
+Arch packaging is in `packaging/PKGBUILD`. It installs the application system-wide
+without modifying home directories or changing PDF defaults. The user-local
+installer below remains available for development.
 
 ```sh
 cargo run -- --gui document.pdf
@@ -24,8 +35,10 @@ cargo run -- --gui document.pdf
 ```
 
 The installer is user-local: it puts the binary in `~/.local/bin`, places the
-UI and desktop entry under `~/.local/share`, and registers Folio as the default
-handler for `application/pdf`. It does not write to `/usr/share/omarchy`.
+UI and desktop entry under `~/.local/share`, installs the automatically
+discoverable `folio-pdf` Codex skill under `~/.codex/skills`, and registers
+Folio as the default handler for `application/pdf`. It does not write to
+`/usr/share/omarchy`.
 
 ## Agent CLI
 
@@ -37,6 +50,8 @@ mouse automation:
 folio inspect input.pdf
 folio agent-help
 folio review edit.json
+folio edit edit.json
+folio status
 folio verify result.pdf
 ```
 
@@ -45,7 +60,20 @@ slice, and order in one operation. It can then place text by normalized
 top-left coordinates. A saved signature is available as `saved_signature`, but
 Folio refuses to use it unless `--allow-saved-signature` is also passed.
 `review` opens the proposal on screen for correction and user-controlled export;
+`edit` updates that running review in place without restarting the window;
 `apply` is the explicitly headless alternative.
+
+`status` reads the live pages, annotations, selection state, and review revision.
+Use it before further edits so manual corrections are not lost: `edit` replaces
+the entire proposal, it does not merge changes. Updates wait for the window to
+confirm loading and refuse while the user is typing or the document is busy.
+They preserve the current page and zoom. Connector installation and sign-in are
+handled by the agent host, not Folio; verify access before claiming a lookup ran.
+
+The installed `folio-pdf` skill advertises this intended workflow to new Codex
+tasks globally, including the preference for visible review, output verification,
+multiline text, and the separate authorization required for signatures. Agents
+working inside this repository also receive the same policy from `AGENTS.md`.
 
 See [AGENTS.md](AGENTS.md) for the required inspect/apply/verify/render workflow.
 
@@ -53,25 +81,54 @@ See [AGENTS.md](AGENTS.md) for the required inspect/apply/verify/render workflow
 
 - `Ctrl+O`: replace the workspace with one or more PDFs
 - `Ctrl+Shift+O`: append PDFs
+- **Recent**: reopen one of the last ten PDFs; missing files are hidden and
+  **Clear recent files** removes the history. Reopening restores its saved draft.
 - Left/Right: previous/next page
+- `Ctrl+Home` / `Ctrl+End`: first/last page
 - `Ctrl+B`: bookmark the current source page
 - Delete: remove the selected annotation, otherwise remove the current page
 - `Ctrl+Shift+S`: save a new PDF
 - `Ctrl++` / `Ctrl+-`: zoom
+- Two-finger pinch: smoothly zoom around the point under your fingers
 
-Text and signatures can be dragged after placement. Page arrows at the bottom
-of the rail change page order; the minus button slices a page out.
+Text and signatures can be dragged after placement. Selected text shows an
+open-hand cursor; drag for a closed hand and constrained page movement. Click
+**Edit**, double-click, or press Enter to edit; click outside to finish. Escape
+cancels a new field or discards changes to existing text. Delete removes a
+selection, either from the keyboard or the visible contextual button. Page
+arrows at the bottom of the rail change page order; the minus button slices a
+page out.
 
-Text placement opens the new field immediately with `Text` selected; typing and
-pressing Enter commits it and returns to Read. Signature placement returns to
-Read as soon as the visible signature is on the page.
+Selected text has a right-edge handle for changing the field width without
+changing its font size. Selected signatures have a corner handle that resizes
+them proportionally. Both handles use their corresponding resize cursors.
+
+Selecting text reveals a slim bottom formatter for point size, font, and ink
+colour. Those choices become the defaults for the next text box. Selecting a
+signature shows only smaller/larger controls.
+
+Text placement opens an empty field at the clicked baseline. Typing and pressing
+Enter commits it, while Shift+Enter inserts a new line; clicking elsewhere
+commits and clears the selection. Signature placement returns to Read as soon as
+the visible signature is on the page.
+
+Line breaks are explicit (Shift+Enter); text does not automatically wrap, so
+the editor and exported PDF use the same lines.
 
 ## UI regression test
 
 With Folio open, `tests/ui-flow.sh` injects real pointer clicks through uinput,
 uses the read-only Quickshell IPC seam to locate controls, types into the actual
 text editor, places the saved signature, and removes both test annotations. It
-does not invoke UI actions through IPC or export a document.
+also clicks the contextual formatting controls and checks their model updates.
+It does not invoke UI actions through IPC or export a document.
+
+`tests/pinch-flow.sh` creates a temporary two-contact Linux input device and
+verifies that native pinch-in and pinch-out gestures change the live zoom level.
+
+`python3 tests/corpus-smoke.py FILE.pdf ...` measures inspection, first visible
+Qt render, and real-keyboard page turns. It also checks bookmark persistence and
+reopening through the actual Recent menu in an isolated state directory.
 
 ## Deliberate boundaries
 

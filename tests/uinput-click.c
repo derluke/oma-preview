@@ -16,8 +16,8 @@ static int emit(int fd, int type, int code, int value) {
 }
 
 int main(int argc, char **argv) {
-    if (argc != 5) {
-        fprintf(stderr, "usage: %s X Y MAX_X MAX_Y\n", argv[0]);
+    if (argc != 5 && argc != 7) {
+        fprintf(stderr, "usage: %s X Y MAX_X MAX_Y [END_X END_Y]\n", argv[0]);
         return 2;
     }
     int x = atoi(argv[1]);
@@ -56,6 +56,16 @@ int main(int argc, char **argv) {
     emit(fd, EV_KEY, BTN_LEFT, 1);
     emit(fd, EV_SYN, SYN_REPORT, 0);
     usleep(30000);
+    if (argc == 7) {
+        int end_x = atoi(argv[5]);
+        int end_y = atoi(argv[6]);
+        for (int step = 1; step <= 10; step++) {
+            emit(fd, EV_ABS, ABS_X, x + (end_x - x) * step / 10);
+            emit(fd, EV_ABS, ABS_Y, y + (end_y - y) * step / 10);
+            emit(fd, EV_SYN, SYN_REPORT, 0);
+            usleep(12000);
+        }
+    }
     emit(fd, EV_KEY, BTN_LEFT, 0);
     emit(fd, EV_SYN, SYN_REPORT, 0);
     usleep(50000);

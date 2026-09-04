@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
@@ -11,6 +12,16 @@ use std::process::Command;
 #[derive(Debug, Deserialize)]
 #[serde(tag = "c", rename_all = "snake_case")]
 enum Request {
+    RecentsGet {
+        id: u64,
+    },
+    RecentsClear {
+        id: u64,
+    },
+    RecentAdd {
+        id: u64,
+        path: String,
+    },
     Inspect {
         id: u64,
         path: String,
@@ -44,6 +55,19 @@ enum Request {
         #[serde(default)]
         allow_saved_signature: bool,
     },
+    DraftGet {
+        id: u64,
+        key: String,
+    },
+    DraftSave {
+        id: u64,
+        key: String,
+        draft: Value,
+    },
+    DraftDelete {
+        id: u64,
+        key: String,
+    },
     Quit,
 }
 
@@ -72,6 +96,12 @@ enum Annotation {
         text: String,
         #[serde(default = "default_font_size")]
         size: f64,
+        #[serde(default = "default_font_family")]
+        font: String,
+        #[serde(default = "default_ink_color")]
+        color: String,
+        #[serde(default)]
+        width: f64,
     },
     Signature {
         page_key: String,
@@ -85,6 +115,14 @@ enum Annotation {
 
 fn default_font_size() -> f64 {
     14.0
+}
+
+fn default_font_family() -> String {
+    "sans-serif".into()
+}
+
+fn default_ink_color() -> String {
+    "#111111".into()
 }
 
 #[derive(Debug, Serialize)]
@@ -101,6 +139,11 @@ fn main() -> Result<()> {
         Some("inspect") => command_inspect(&args[1..]),
         Some("apply") => command_apply(&args[1..]),
         Some("review") => command_review(&args[1..]),
+        Some("edit") => command_edit(&args[1..]),
+        Some("status") => {
+            println!("{}", serde_json::to_string_pretty(&live_state()?)?);
+            Ok(())
+        }
         Some("verify") => command_verify(&args[1..]),
         Some("agent-help") => {
             print_agent_help();
@@ -124,6 +167,8 @@ fn print_help() {
          \x20      folio inspect PDF\n\
          \x20      folio apply SPEC.json [--allow-saved-signature]\n\
          \x20      folio review SPEC.json [--allow-saved-signature]\n\
+         \x20      folio edit SPEC.json [--allow-saved-signature]\n\
+         \x20      folio status\n\
          \x20      folio verify PDF\n\
          \x20      folio agent-help\n\
          \x20      folio --version"
@@ -131,13 +176,21 @@ fn print_help() {
 }
 
 fn print_agent_help() {
-    const AGENT_HELP: &str = r#"Folio agent interface (JSON on stdout; diagnostics on stderr)
+    const AGENT_HELP: &str = r##"Folio agent interface (JSON on stdout; diagnostics on stderr)
+
+Intended use: fill non-form PDFs, propose text/signature overlays, and assemble
+or slice pages while the user follows along. Default to `review`: it opens the
+proposal visibly so the user can correct placement and content before export.
 
 1. `folio inspect input.pdf`
 2. Write a JSON spec, using normalized top-left coordinates (0.0 to 1.0).
 3. `folio review spec.json` to let the user inspect and adjust before export.
-4. Use `folio apply spec.json` only for an explicitly unattended export.
-5. `folio verify output.pdf`
+4. Update that running window with `folio edit updated-spec.json`.
+   `folio status` returns the actual visible pages and annotations, including
+   user corrections. Reconcile these before replacing a proposal. `edit` waits
+   for the UI to confirm loading and refuses while the user is typing.
+5. Use `folio apply spec.json` only for an explicitly unattended export.
+6. `folio verify output.pdf`
 
 Spec:
 {
@@ -148,7 +201,7 @@ Spec:
   ],
   "annotations": [
     {"kind": "text", "output_page": 1, "x": 0.20, "y": 0.15,
-     "text": "Visible text", "size": 12},
+     "text": "Visible text", "size": 12, "font": "serif", "color": "#2563eb"},
     {"kind": "saved_signature", "output_page": 1, "x": 0.18, "y": 0.72,
      "width": 0.28, "height": 0.10}
   ]
@@ -156,9 +209,11 @@ Spec:
 
 `pages` accepts `all`, comma-separated pages, and inclusive ranges. Source and
 output paths are resolved relative to the spec. `output_page` addresses the
-assembled result, starting at 1. Applying a saved signature is refused unless
+assembled result, starting at 1. Text fonts are `sans-serif`, `serif`, or
+`monospace`; colors use `#RRGGBB`. Applying a saved signature is refused unless
 the caller also passes `--allow-saved-signature`. Existing files are replaced
-atomically; input PDFs are never modified."#;
+atomically; input PDFs are never modified. Text may contain `\n` for explicit
+line breaks; in the review UI Shift+Enter inserts a line and Enter finishes."##;
     println!("{AGENT_HELP}");
 }
 
@@ -191,6 +246,10 @@ enum AgentAnnotation {
         text: String,
         #[serde(default = "default_font_size")]
         size: f64,
+        #[serde(default = "default_font_family")]
+        font: String,
+        #[serde(default = "default_ink_color")]
+        color: String,
     },
     SavedSignature {
         output_page: u32,
@@ -251,6 +310,86 @@ fn command_review(args: &[String]) -> Result<()> {
     // Parse and validate before showing a window, so agents get a synchronous error.
     let _ = prepare_agent_spec(&spec_path, allow_signature)?;
     launch_quickshell(Vec::new(), Some(spec_path), allow_signature)
+}
+
+fn command_edit(args: &[String]) -> Result<()> {
+    let allow_signature = args.iter().any(|arg| arg == "--allow-saved-signature");
+    let spec_path = spec_path_arg("edit", args)?;
+    let _ = prepare_agent_spec(&spec_path, allow_signature)?;
+    let before = live_state()?;
+    if before["busy"] == true || before["editing"] == true {
+        bail!("Folio is busy or the user is typing; wait until editing finishes before retrying");
+    }
+    let revision = before["revision"].as_u64().unwrap_or(0);
+    let exe = env::current_exe().context("locate Folio executable")?;
+    let ui = ui_dir(&exe)?;
+    let result = Command::new("qs")
+        .args([
+            "-p",
+            ui.to_string_lossy().as_ref(),
+            "ipc",
+            "call",
+            "folio",
+            "loadReview",
+            spec_path.to_string_lossy().as_ref(),
+            if allow_signature { "true" } else { "false" },
+        ])
+        .output()
+        .context("contact the running Folio window")?;
+    if !result.status.success() || String::from_utf8_lossy(&result.stdout).trim() != "true" {
+        let detail = String::from_utf8_lossy(&result.stderr);
+        bail!(
+            "no running Folio review accepted the edit{}",
+            if detail.trim().is_empty() {
+                String::new()
+            } else {
+                format!(": {}", detail.trim())
+            }
+        );
+    }
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    loop {
+        let state = live_state()?;
+        if let Some(error) = state["error"].as_str().filter(|s| !s.is_empty()) {
+            bail!("Folio could not load the proposal: {error}");
+        }
+        if state["revision"].as_u64().unwrap_or(0) > revision {
+            break;
+        }
+        if std::time::Instant::now() >= deadline {
+            bail!("Folio has not confirmed the update; inspect `folio status` before retrying");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&json!({
+            "ok": true,
+            "review": "updated",
+            "spec": spec_path
+        }))?
+    );
+    Ok(())
+}
+
+fn live_state() -> Result<Value> {
+    let exe = env::current_exe().context("locate Folio executable")?;
+    let ui = ui_dir(&exe)?;
+    let result = Command::new("qs")
+        .args([
+            "-p",
+            ui.to_string_lossy().as_ref(),
+            "ipc",
+            "call",
+            "folio",
+            "state",
+        ])
+        .output()
+        .context("contact the running Folio window")?;
+    if !result.status.success() {
+        bail!("cannot read Folio's live state; open a review using this version of Folio first");
+    }
+    serde_json::from_slice(&result.stdout).context("read Folio live state")
 }
 
 struct PreparedSpec {
@@ -318,6 +457,8 @@ fn prepare_agent_spec(spec_path: &Path, allow_signature: bool) -> Result<Prepare
                 y,
                 text,
                 size,
+                font,
+                color,
             } => {
                 validate_output_page(output_page, pages.len())?;
                 validate_fraction("text x", x)?;
@@ -325,12 +466,17 @@ fn prepare_agent_spec(spec_path: &Path, allow_signature: bool) -> Result<Prepare
                 if !(1.0..=200.0).contains(&size) {
                     bail!("text size must be between 1 and 200 points");
                 }
+                validate_font(&font)?;
+                validate_color(&color)?;
                 annotations.push(Annotation::Text {
                     page_key: format!("output-{output_page}"),
                     x,
                     y,
                     text,
                     size,
+                    font,
+                    color,
+                    width: 0.0,
                 });
             }
             AgentAnnotation::SavedSignature {
@@ -457,6 +603,23 @@ fn validate_fraction(name: &str, value: f64) -> Result<()> {
     Ok(())
 }
 
+fn validate_font(value: &str) -> Result<()> {
+    if !matches!(value, "sans-serif" | "serif" | "monospace") {
+        bail!("text font must be sans-serif, serif, or monospace");
+    }
+    Ok(())
+}
+
+fn validate_color(value: &str) -> Result<()> {
+    if value.len() != 7
+        || !value.starts_with('#')
+        || !value.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit)
+    {
+        bail!("text color must use #RRGGBB");
+    }
+    Ok(())
+}
+
 fn launch_gui(args: &[String]) -> Result<()> {
     let mut paths = args
         .iter()
@@ -481,22 +644,7 @@ fn launch_quickshell(
     allow_saved_signature: bool,
 ) -> Result<()> {
     let exe = env::current_exe().context("locate Folio executable")?;
-    let ui = env::var_os("FOLIO_UI_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            let beside = exe
-                .parent()
-                .unwrap_or(Path::new("."))
-                .join("../share/folio/ui");
-            if beside.exists() {
-                beside
-            } else {
-                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui")
-            }
-        });
-    if !ui.join("shell.qml").exists() {
-        bail!("Folio UI was not found at {}", ui.display());
-    }
+    let ui = ui_dir(&exe)?;
 
     let mut command = Command::new("qs");
     command
@@ -516,6 +664,26 @@ fn launch_quickshell(
         bail!("Quickshell exited with {status}");
     }
     Ok(())
+}
+
+fn ui_dir(exe: &Path) -> Result<PathBuf> {
+    let ui = env::var_os("FOLIO_UI_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| {
+            let beside = exe
+                .parent()
+                .unwrap_or(Path::new("."))
+                .join("../share/folio/ui");
+            if beside.exists() {
+                beside
+            } else {
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ui")
+            }
+        });
+    if !ui.join("shell.qml").exists() {
+        bail!("Folio UI was not found at {}", ui.display());
+    }
+    Ok(ui)
 }
 
 fn backend() -> Result<()> {
@@ -561,6 +729,22 @@ fn emit(out: &mut impl Write, value: Value) {
 
 fn handle(request: Request, out: &mut impl Write) -> Result<()> {
     match request {
+        Request::RecentsGet { id } => {
+            emit(out, json!({"t":"recents","id":id,"paths":recent_paths()}));
+        }
+        Request::RecentsClear { id } => {
+            write_json(&state_dir().join("recents.json"), &Vec::<String>::new())?;
+            emit(out, json!({"t":"recents","id":id,"paths":[]}));
+        }
+        Request::RecentAdd { id, path } => {
+            let path = fs::canonicalize(path)?.to_string_lossy().into_owned();
+            let mut paths = recent_paths();
+            paths.retain(|p| p != &path);
+            paths.insert(0, path);
+            paths.truncate(10);
+            write_json(&state_dir().join("recents.json"), &paths)?;
+            emit(out, json!({"t":"recents","id":id,"paths":paths}));
+        }
         Request::Inspect { id, path } => {
             let pages = inspect(Path::new(&path))?;
             emit(
@@ -616,6 +800,21 @@ fn handle(request: Request, out: &mut impl Write) -> Result<()> {
                     "annotations":prepared.annotations
                 }),
             );
+        }
+        Request::DraftGet { id, key } => {
+            let draft: Value = read_json(&draft_path(&key)).unwrap_or(Value::Null);
+            emit(out, json!({"t":"draft_loaded","id":id,"draft":draft}));
+        }
+        Request::DraftSave { id, key, draft } => {
+            write_json(&draft_path(&key), &draft)?;
+            emit(out, json!({"t":"draft_saved","id":id}));
+        }
+        Request::DraftDelete { id, key } => {
+            let file = draft_path(&key);
+            if file.exists() {
+                fs::remove_file(file)?;
+            }
+            emit(out, json!({"t":"draft_deleted","id":id}));
         }
         Request::Quit => unreachable!(),
     }
@@ -678,6 +877,13 @@ fn inspect(path: &Path) -> Result<Vec<InspectedPage>> {
 fn export(dest: &Path, pages: &[PageRef], annotations: &[Annotation]) -> Result<()> {
     if pages.is_empty() {
         bail!("there are no pages to save");
+    }
+    if let Ok(destination) = fs::canonicalize(dest) {
+        for page in pages {
+            if fs::canonicalize(&page.path).ok().as_ref() == Some(&destination) {
+                bail!("choose a different output file; Folio never overwrites a source PDF");
+            }
+        }
     }
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)?;
@@ -746,16 +952,13 @@ fn create_overlay(path: &Path, pages: &[PageRef], annotations: &[Annotation]) ->
                     y,
                     text,
                     size,
+                    font,
+                    color,
+                    ..
                 } if page_key == &page.key => {
                     let px = x.clamp(0.0, 1.0) * page.width;
                     let py = y.clamp(0.0, 1.0) * page.height + size;
-                    elements.push_str(&format!(
-                        "<text x=\"{:.2}\" y=\"{:.2}\" font-family=\"sans-serif\" font-size=\"{:.2}\" fill=\"#111111\">{}</text>\n",
-                        px,
-                        py,
-                        size,
-                        xml_escape(text)
-                    ));
+                    elements.push_str(&svg_text_elements(px, py, text, *size, font, color));
                 }
                 Annotation::Signature {
                     page_key,
@@ -831,7 +1034,46 @@ fn xml_escape(text: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
-        .replace(['\n', '\r'], " ")
+}
+
+fn svg_text_elements(
+    x: f64,
+    baseline: f64,
+    text: &str,
+    size: f64,
+    font: &str,
+    color: &str,
+) -> String {
+    let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
+    normalized
+        .split('\n')
+        .enumerate()
+        .map(|(line, value)| {
+            format!(
+                "<text x=\"{x:.2}\" y=\"{:.2}\" font-family=\"{}\" font-size=\"{size:.2}\" fill=\"{}\">{}</text>\n",
+                baseline + line as f64 * size * 1.2,
+                safe_font(font),
+                safe_color(color),
+                xml_escape(value)
+            )
+        })
+        .collect()
+}
+
+fn safe_font(value: &str) -> &str {
+    match value {
+        "serif" => "serif",
+        "monospace" => "monospace",
+        _ => "sans-serif",
+    }
+}
+
+fn safe_color(value: &str) -> &str {
+    if validate_color(value).is_ok() {
+        value
+    } else {
+        "#111111"
+    }
 }
 
 fn data_dir() -> PathBuf {
@@ -847,6 +1089,36 @@ fn signature_path() -> PathBuf {
 }
 fn bookmarks_path() -> PathBuf {
     state_dir().join("bookmarks.json")
+}
+
+fn recent_paths() -> Vec<String> {
+    let mut paths: Vec<String> = read_json(&state_dir().join("recents.json")).unwrap_or_default();
+    paths.retain(|path| Path::new(path).is_file());
+    paths.truncate(10);
+    paths
+}
+
+fn draft_path(key: &str) -> PathBuf {
+    let mut digest = Sha256::new();
+    digest.update(b"folio-draft-v1\0");
+    digest.update(key.as_bytes());
+    if let Ok(paths) = serde_json::from_str::<Vec<String>>(key) {
+        for path in paths {
+            digest.update(b"\0");
+            digest.update(path.as_bytes());
+            if let Ok(meta) = fs::metadata(&path) {
+                digest.update(meta.len().to_le_bytes());
+                if let Ok(changed) = meta.modified()
+                    && let Ok(duration) = changed.duration_since(std::time::UNIX_EPOCH)
+                {
+                    digest.update(duration.as_nanos().to_le_bytes());
+                }
+            }
+        }
+    }
+    state_dir()
+        .join("drafts")
+        .join(format!("{:x}.json", digest.finalize()))
 }
 
 fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
@@ -873,7 +1145,17 @@ mod tests {
     #[test]
     fn annotation_text_is_xml_escaped_without_losing_unicode() {
         assert_eq!(xml_escape("Jörg & 李 <3"), "Jörg &amp; 李 &lt;3");
-        assert_eq!(xml_escape("line one\nline two"), "line one line two");
+        let lines = svg_text_elements(
+            10.0,
+            20.0,
+            "line one\nline & two",
+            10.0,
+            "sans-serif",
+            "#111111",
+        );
+        assert!(lines.contains("y=\"20.00\""));
+        assert!(lines.contains("y=\"32.00\""));
+        assert!(lines.contains(">line &amp; two</text>"));
     }
 
     #[test]
@@ -902,6 +1184,9 @@ mod tests {
             y: 0.2,
             text: "Héllo (PDF)".into(),
             size: 14.0,
+            font: "sans-serif".into(),
+            color: "#111111".into(),
+            width: 0.0,
         }];
 
         create_overlay(&output, &pages, &marks).unwrap();

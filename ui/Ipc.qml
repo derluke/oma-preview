@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell.Io
+import "."
 
 QtObject {
     id: root
@@ -10,6 +11,16 @@ QtObject {
     property var paper: null
     property var textButton: null
     property var signButton: null
+    property var formatSizeUp: null
+    property var formatFont: null
+    property var inkBlue: null
+    property var formatEdit: null
+    property var formatDelete: null
+    property var closeDialog: null
+    property var backend: null
+    property var renderedPage: null
+    property var recentButton: null
+    property var recentMenu: null
 
     function centre(item) {
         if (!item || !folioWindow) return ""
@@ -20,9 +31,46 @@ QtObject {
     property IpcHandler seam: IpcHandler {
         target: "folio"
         function ready(): bool { return root.pages !== null && root.paper !== null }
+        function renderState(): string {
+            return JSON.stringify({ready:root.renderedPage && root.renderedPage.status === Image.Ready,
+                frame:root.renderedPage ? root.renderedPage.currentFrame : -1,
+                milliseconds:root.renderedPage ? root.renderedPage.lastRenderMs : 0})
+        }
+        function recentButtonCentre(): string { return root.centre(root.recentButton) }
+        function recentItemCentre(index: int): string { return root.centre(root.recentMenu.itemAt(index)) }
+        function loadReview(path: string, allowSavedSignature: bool): bool {
+            if (!root.folioWindow || !root.backend) return false
+            return root.folioWindow.applyLiveReview(path, allowSavedSignature)
+        }
+        function state(): string {
+            if (!root.folioWindow) return JSON.stringify({ready:false})
+            var w = root.folioWindow
+            return JSON.stringify({ready:true, busy:w.busy, revision:w.reviewRevision,
+                error:w.reviewError, dirty:w.dirty, editing:w.editingAnnotation >= 0,
+                selected_annotation:w.selectedAnnotation, tool:w.tool, zoom:w.zoom,
+                current_page:w.currentIndex + 1, output:w.suggestedOutput,
+                pages:w.pagePayload(), annotations:w.annotationPayload()})
+        }
         function tool(): string { return root.folioWindow ? root.folioWindow.tool : "" }
         function pageCount(): int { return root.pages ? root.pages.count : 0 }
         function currentPage(): int { return root.folioWindow ? root.folioWindow.currentIndex + 1 : 0 }
+        function zoom(): real { return root.folioWindow ? root.folioWindow.zoom : 0 }
+        function themeBackground(): string { return String(Theme.background) }
+        function themeForeground(): string { return String(Theme.foreground) }
+        function themeAccent(): string { return String(Theme.accent) }
+        function draftRestored(): bool { return root.folioWindow ? root.folioWindow.draftRestored : false }
+        function draftNoticeVisible(): bool { return root.folioWindow ? root.folioWindow.draftNoticeVisible : false }
+        function dirty(): bool { return root.folioWindow ? root.folioWindow.dirty : false }
+        function recentPaths(): string { return JSON.stringify(root.folioWindow.recents) }
+        function bookmarked(): bool { return root.folioWindow.isBookmarked() }
+        function statusText(): string { return root.folioWindow ? root.folioWindow.statusText : "" }
+        function closePromptVisible(): bool { return root.closeDialog ? root.closeDialog.visible : false }
+        function closeCancelCentre(): string { return root.closeDialog ? root.centre(root.closeDialog.cancelButton) : "" }
+        function requestClose(): bool {
+            if (!root.folioWindow) return false
+            root.folioWindow.close()
+            return true
+        }
         function annotationCount(): int { return root.annotations ? root.annotations.count : 0 }
         function annotationKinds(): string {
             var kinds = []
@@ -33,6 +81,40 @@ QtObject {
             if (!root.annotations || index < 0 || index >= root.annotations.count) return ""
             var mark = root.annotations.get(index)
             return mark.kind === "text" ? mark.value : ""
+        }
+        function annotationSize(index: int): real {
+            if (!root.annotations || index < 0 || index >= root.annotations.count) return -1
+            return root.annotations.get(index).size
+        }
+        function annotationWidth(index: int): real {
+            if (!root.annotations || index < 0 || index >= root.annotations.count) return -1
+            return root.annotations.get(index).nw
+        }
+        function annotationFont(index: int): string {
+            if (!root.annotations || index < 0 || index >= root.annotations.count) return ""
+            return root.annotations.get(index).fontFamily
+        }
+        function annotationColor(index: int): string {
+            if (!root.annotations || index < 0 || index >= root.annotations.count) return ""
+            return root.annotations.get(index).inkColor
+        }
+        function selectedAnnotation(): int { return root.folioWindow ? root.folioWindow.selectedAnnotation : -1 }
+        function annotationPosition(index: int): string {
+            if (!root.annotations || index < 0 || index >= root.annotations.count) return ""
+            var mark = root.annotations.get(index)
+            return mark.nx.toFixed(4) + " " + mark.ny.toFixed(4)
+        }
+        function annotationPoint(index: int): string {
+            if (!root.annotations || !root.paper || !root.folioWindow || index < 0 || index >= root.annotations.count) return ""
+            var mark = root.annotations.get(index)
+            var rect = root.folioWindow.itemRect(root.paper)
+            return Math.round(rect.x + rect.width * mark.nx + 6) + " " + Math.round(rect.y + rect.height * mark.ny + 6)
+        }
+        function annotationResizePoint(index: int): string {
+            if (!root.annotationRepeater || index < 0) return ""
+            var loader = root.annotationRepeater.itemAt(index)
+            if (!loader || !loader.item || !loader.item.resizeHandle) return ""
+            return root.centre(loader.item.resizeHandle)
         }
         function editingText(index: int): bool {
             if (!root.annotationRepeater || index < 0) return false
@@ -56,6 +138,11 @@ QtObject {
         }
         function textButtonCentre(): string { return root.centre(root.textButton) }
         function signButtonCentre(): string { return root.centre(root.signButton) }
+        function sizeUpCentre(): string { return root.centre(root.formatSizeUp) }
+        function fontButtonCentre(): string { return root.centre(root.formatFont) }
+        function blueButtonCentre(): string { return root.centre(root.inkBlue) }
+        function editButtonCentre(): string { return root.centre(root.formatEdit) }
+        function deleteButtonCentre(): string { return root.centre(root.formatDelete) }
         function pagePoint(x: real, y: real): string {
             if (!root.paper || !root.folioWindow) return ""
             var rect = root.folioWindow.itemRect(root.paper)
