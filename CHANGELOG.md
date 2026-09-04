@@ -1,5 +1,7 @@
 # Unreleased
 
+- Collapsible page-preview sidebar (Pages/F9), with viewport-only thumbnail
+  rendering and renderer release on collapse; verified against 2,140 pages.
 - Use Qt Quick Open/Add/Save dialogs instead of the GTK native dialog path.
 - Report process identity, active-window and modal state to agents; reject live
   updates and document shortcuts while dialogs are open.

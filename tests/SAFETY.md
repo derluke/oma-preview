@@ -11,6 +11,10 @@ python3 -m unittest discover -s tests -p 'test_*.py'
 python3 tests/dialog-smoke.py
 ```
 
+For a long PDF (at least ten pages), `python3 tests/thumbnail-smoke.py INPUT.pdf`
+checks viewport-only rendering, navigation to the last page, renderer release
+on collapse, and selection retention on expand, all offscreen.
+
 The dialog test uses a temporary UI copy, isolated state and Qt's offscreen
 platform. It opens/closes the actual Open/Add/Save dialogs and checks that live
 review updates are blocked. It never invokes wtype, uinput or the compositor.

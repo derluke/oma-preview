@@ -8,6 +8,7 @@ page extraction and concatenation structurally safe.
 ## What works
 
 - Fast PDF reading with keyboard paging and zoom
+- Collapsible page-preview sidebar: **Pages** or **F9**; only viewport thumbnails render
 - Native touchpad/touchscreen pinch-to-zoom, anchored under the gesture
 - Text placed anywhere, including on PDFs with no form fields
 - Draw a signature once, retain it locally, and place it again later

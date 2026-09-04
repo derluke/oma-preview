@@ -24,6 +24,7 @@ ShellRoot {
         property int currentIndex: pages.count > 0 ? Math.min(pageList.currentIndex < 0 ? 0 : pageList.currentIndex, pages.count - 1) : -1
         property var currentPage: (currentIndex >= 0 ? pages.get(currentIndex) : null) || ({path:"", page:1, width:595, height:842, key:""})
         property string tool: "read"
+        property bool sidebarVisible: true
         property real zoom: 1.0
         property int serial: 0
         property int selectedAnnotation: -1
@@ -462,6 +463,7 @@ ShellRoot {
                     anchors.left: parent.left; anchors.leftMargin: 10; anchors.verticalCenter: parent.verticalCenter
                     spacing: 3
                     ToolButton { label: "Open"; onActivated: openDialog.open() }
+                    ToolButton { label: "Pages"; chosen: window.sidebarVisible; enabled: pages.count > 0; onActivated: window.sidebarVisible = !window.sidebarVisible }
                     ToolButton { id: recentButton; label: "Recent"; onActivated: recentMenu.popup() }
                     ToolButton { label: "Add PDF"; onActivated: addDialog.open() }
                     ToolButton { label: "↶"; enabled: window.undoStack.length > 0 && !window.busy && window.editingAnnotation < 0; onActivated: window.travelHistory(false) }
@@ -488,7 +490,7 @@ ShellRoot {
             Rectangle {
                 id: sidebar
                 anchors.left: parent.left; anchors.top: toolbar.bottom; anchors.bottom: status.top
-                width: pages.count > 0 ? 190 : 0
+                width: pages.count > 0 && window.sidebarVisible ? 190 : 0
                 visible: width > 0
                 color: Theme.chrome
                 clip: true
@@ -507,22 +509,48 @@ ShellRoot {
                     anchors.top: sidebarTitle.bottom; anchors.bottom: pageActions.top
                     anchors.topMargin: 8; anchors.bottomMargin: 6
                     clip: true; model: pages
+                    cacheBuffer: 0
+                    ScrollBar.vertical: ScrollBar { }
                     currentIndex: pages.count ? 0 : -1
                     onCurrentIndexChanged: { window.currentIndex = currentIndex; window.selectedAnnotation = -1 }
                     delegate: Rectangle {
                         required property int index
                         required property string path
                         required property int page
-                        width: ListView.view.width; height: 38
+                        id: pageRow
+                        readonly property bool thumbnailActive: thumbnailLoader.active
+                        readonly property bool thumbnailReady: thumbnailLoader.item ? thumbnailLoader.item.ready : false
+                        width: ListView.view.width; height: 184
                         color: ListView.isCurrentItem ? Theme.selected : rowTap.containsMouse ? Theme.hover : "transparent"
+                        Loader {
+                            id: thumbnailLoader
+                            anchors.top: parent.top; anchors.topMargin: 8
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: 150; height: 144
+                            // Only render viewport thumbnails; closing the sidebar releases them.
+                            active: window.sidebarVisible && pageRow.y + pageRow.height > pageList.contentY && pageRow.y < pageList.contentY + pageList.height
+                            sourceComponent: Item {
+                                readonly property bool ready: thumbnailImage.status === Image.Ready
+                                PdfDocument { id: thumbnailDocument; source: window.fileUri(pageRow.path) }
+                                PdfPageImage {
+                                    id: thumbnailImage
+                                    anchors.fill: parent
+                                    document: thumbnailDocument
+                                    currentFrame: Math.max(0, pageRow.page - 1)
+                                    sourceSize: Qt.size(150, 144)
+                                    asynchronous: true
+                                    fillMode: Image.PreserveAspectFit
+                                }
+                            }
+                        }
                         Text {
-                            anchors.left: parent.left; anchors.leftMargin: 13; anchors.verticalCenter: parent.verticalCenter
+                            anchors.left: parent.left; anchors.leftMargin: 13; anchors.bottom: parent.bottom; anchors.bottomMargin: 10
                             text: (index + 1) + "   " + window.fileName(path)
                             width: parent.width - 42; elide: Text.ElideMiddle
                             color: Theme.foreground; font.family: Theme.fontFamily; font.pixelSize: Theme.smallSize
                         }
                         Text {
-                            anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter
+                            anchors.right: parent.right; anchors.rightMargin: 10; anchors.bottom: parent.bottom; anchors.bottomMargin: 10
                             text: ((window.bookmarks[path] || []).indexOf(page) >= 0 ? "•  " : "") + page
                             color: (window.bookmarks[path] || []).indexOf(page) >= 0 ? Theme.accent : Theme.muted
                             font.family: Theme.fontFamily; font.pixelSize: Theme.smallSize
@@ -999,6 +1027,7 @@ ShellRoot {
         Timer { id: statusTimer; interval: 4500; onTriggered: window.statusText = "" }
         Timer { id: draftTimer; interval: 600; onTriggered: window.saveDraftNow() }
         Shortcut { enabled: !window.modalActive; sequence: "Ctrl+O"; onActivated: openDialog.open() }
+        Shortcut { enabled: !window.modalActive && pages.count > 0; sequence: "F9"; onActivated: window.sidebarVisible = !window.sidebarVisible }
         Shortcut { sequence: "Ctrl+Z"; enabled: !window.modalActive && (window.editingAnnotation < 0); onActivated: window.travelHistory(false) }
         Shortcut { sequences: ["Ctrl+Shift+Z", "Ctrl+Y"]; enabled: !window.modalActive && (window.editingAnnotation < 0); onActivated: window.travelHistory(true) }
         Shortcut { enabled: !window.modalActive; sequence: "Ctrl+Shift+O"; onActivated: addDialog.open() }
