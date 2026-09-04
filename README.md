@@ -6,8 +6,10 @@ corrections before saving. Your originals stay untouched.
 
 ![Oma Preview editing a sample PDF in Tokyo Night](https://github.com/derluke/oma-preview/releases/download/v0.8.1/01-tokyo-night.png)
 
-[Watch the demo · 52 seconds](https://github.com/derluke/oma-preview/releases/download/v0.8.1/oma-preview-conversation-edited.mp4)
-— a conversation, a correction, and a finished PDF. Pauses cut; editing sped up.
+https://github.com/user-attachments/assets/420d8d09-6072-428c-a137-0430f8a41354
+
+A conversation, a correction, and a finished PDF · 52 seconds.
+Pauses cut; editing sped up.
 
 <details>
 <summary>Light and warm themes</summary>
