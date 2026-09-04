@@ -10,7 +10,7 @@ options=('!debug')
 depends=('quickshell' 'qt6-declarative' 'qt6-webengine' 'qpdf' 'poppler' 'librsvg' 'gcc-libs' 'glibc')
 makedepends=('cargo')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=('b54f48a206c69f1f3d073895db1c580a6e5face3a9d606a643a11e9c41470dbc')
+sha256sums=('274d3b9f7ef62785acc76f5b493cf9d1f8806c4df46ba69b89c30e5a4c03f04a')
 
 prepare() {
     cd "oma-preview-$pkgver"
