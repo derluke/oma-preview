@@ -36,6 +36,7 @@ jobs:
           OMA_PREVIEW_TEST_BIN: /usr/bin/oma-preview
           QT_QPA_PLATFORMTHEME: ''
         run: |
+          mkdir -p output
           if [[ -f tests/offscreen-suite.py ]]; then
             python tests/offscreen-suite.py
           else

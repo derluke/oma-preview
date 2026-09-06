@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
+(root/'output').mkdir(exist_ok=True)
 output = Path(tempfile.mkdtemp(prefix='page-identity-', dir=root/'output'))
 with tempfile.TemporaryDirectory(prefix='oma-page-identity-') as scratch:
     work = Path(scratch)

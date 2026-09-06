@@ -23,7 +23,7 @@ The native input module requires Qt 6.11+. Hold-to-pause depends on compositor
 hold-gesture support; detection timing belongs to the compositor/libinput.
 Click-to-stop remains available where hold gestures are unsupported.
 
-This remains a prerelease. The isolated 25-check UI suite includes 47 input cases,
+The isolated 25-check UI suite includes 47 input cases,
 draft/undo recovery, bookmarks, search, raster checks and a 2,048-page fixture.
 The local Wayland probe confirms hold support without injecting desktop input.
 Physical trackpad feel and ARM64 are not established by these automated tests.
