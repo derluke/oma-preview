@@ -1,22 +1,27 @@
 pkgbase = oma-preview
 	pkgdesc = A small Omarchy-native PDF reader and editor with visible agent review
-	pkgver = 0.8.1
+	pkgver = 0.9.0
 	pkgrel = 1
 	url = https://github.com/derluke/oma-preview
 	arch = x86_64
 	arch = aarch64
 	license = MIT
 	makedepends = cargo
+	makedepends = cmake
+	makedepends = wayland-protocols
+	makedepends = pkgconf
 	depends = quickshell
+	depends = qt6-base>=6.11
 	depends = qt6-declarative
 	depends = qt6-webengine
+	depends = wayland
 	depends = qpdf
 	depends = poppler
 	depends = librsvg
 	depends = gcc-libs
 	depends = glibc
 	options = !debug
-	source = oma-preview-0.8.1.tar.gz::https://github.com/derluke/oma-preview/archive/refs/tags/v0.8.1.tar.gz
-	sha256sums = 9e56d0d6de45e0cb3984e10328aee929c40e4d9b1780235ed850117fa783f541
+	source = oma-preview-0.9.0.tar.gz::https://github.com/derluke/oma-preview/archive/refs/tags/v0.9.0.tar.gz
+	sha256sums = d2a18a7c568677861ace057a8fe8fce57f7ab2dc8363eef3e193115d75852cdc
 
 pkgname = oma-preview
