@@ -1,3 +1,19 @@
+# 0.9.0 release checks
+
+- [Clean Arch build and full suite passed](https://github.com/derluke/oma-preview/actions/runs/34041342949).
+- [Fresh install of the public x86-64 package passed](https://github.com/derluke/oma-preview/actions/runs/34041352286):
+  dependency installation, installed-file integrity/version, and all 25 UI checks
+  against `/usr/bin/oma-preview` and its installed UI (including 47 input cases).
+- Local `makepkg` verified the tagged source checksum, built the Rust backend
+  and native module, and passed 13 Rust/CLI tests. All 25 UI checks also passed
+  against the extracted package. Its hidden Wayland probe reports hold support.
+- Package SHA-256: `68b6bdabc095732db88e17f4f2fe06883e9f4d2ff2f1d7e3726a240c868585a1`.
+- CI-only setup corrections after the source tag build the release backend
+  before integration tests and create the screenshot output directory. No
+  released application code or package contents changed for these corrections.
+- Published as a normal release, not a prerelease. ARM64 and physical trackpad
+  feel remain outside the scope of the automated checks.
+
 # 0.8.2 release checks
 
 - Published x86-64 package installed successfully in a fresh hosted Arch container:

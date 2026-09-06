@@ -28,6 +28,10 @@ draft/undo recovery, bookmarks, search, raster checks and a 2,048-page fixture.
 The local Wayland probe confirms hold support without injecting desktop input.
 Physical trackpad feel and ARM64 are not established by these automated tests.
 
+[Clean Arch build passed](https://github.com/derluke/oma-preview/actions/runs/34041342949).
+[Fresh installation of this public package passed](https://github.com/derluke/oma-preview/actions/runs/34041352286),
+including installed-file integrity, version and all 25 UI regressions.
+
 Reopen existing windows after upgrading. If you used the user-local installer,
 its `~/.local/bin/oma-preview` can shadow the system package; see the
 [installation notes](https://github.com/derluke/oma-preview/blob/main/packaging/README.md).
