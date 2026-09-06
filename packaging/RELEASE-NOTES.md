@@ -37,4 +37,13 @@ its `~/.local/bin/oma-preview` can shadow the system package; see the
 [installation notes](https://github.com/derluke/oma-preview/blob/main/packaging/README.md).
 Omarchy repository inclusion is still under maintainer review.
 
-[Demo and theme screenshots](https://github.com/derluke/oma-preview#readme)
+## A little room to work
+
+![Oma Preview 0.9.0: read, find, fill, correct and switch themes](https://github.com/derluke/oma-preview/releases/download/v0.9.0/oma-preview-0.9-demo.gif)
+
+30 seconds in the real app. Fictional sample, scripted actions, edited timing
+and an illustrated pointer; not a performance benchmark.
+
+[Full-resolution MP4](https://github.com/derluke/oma-preview/releases/download/v0.9.0/oma-preview-0.9-demo.mp4) ·
+[Try the sample PDF](https://github.com/derluke/oma-preview/releases/download/v0.9.0/A.slower.weekend.pdf) ·
+[Current theme screenshots](https://github.com/derluke/oma-preview#readme)

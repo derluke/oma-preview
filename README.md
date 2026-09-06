@@ -4,35 +4,48 @@ A small PDF reader and editor for Omarchy. Read, fill, sign, and rearrange pages
 Work by hand or let an agent fill the document in front of you, then make your
 corrections before saving. Your originals stay untouched.
 
-![Oma Preview editing a sample PDF in Tokyo Night](https://github.com/derluke/oma-preview/releases/download/v0.8.1/01-tokyo-night.png)
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="https://github.com/derluke/oma-preview/releases/download/v0.9.0/01-reading-tokyo-night.png">
+  <img alt="Oma Preview 0.9: reading, finding text, filling a page, correcting an edit and switching themes" src="https://github.com/derluke/oma-preview/releases/download/v0.9.0/oma-preview-0.9-demo.gif">
+</picture>
 
-https://github.com/user-attachments/assets/420d8d09-6072-428c-a137-0430f8a41354
+A little room to work · 30 seconds.
+[Watch the MP4](https://github.com/derluke/oma-preview/releases/download/v0.9.0/oma-preview-0.9-demo.mp4) ·
+[Try the sample PDF](https://github.com/derluke/oma-preview/releases/download/v0.9.0/A.slower.weekend.pdf)
 
-A conversation, a correction, and a finished PDF · 52 seconds.
-Pauses cut; editing sped up.
+Captured from the real 0.9.0 app with fictional content. Scripted actions, edited
+timing and an illustrated pointer; not a performance benchmark.
 
 <details>
-<summary>Light and warm themes</summary>
+<summary>Closer look: reading, editing and three themes</summary>
 
-Catppuccin Latte
+Reading in Tokyo Night.
 
-![Oma Preview in Catppuccin Latte](https://github.com/derluke/oma-preview/releases/download/v0.8.1/02-catppuccin-latte.png)
+![Continuous reading with lazy page thumbnails](https://github.com/derluke/oma-preview/releases/download/v0.9.0/01-reading-tokyo-night.png)
 
-Gruvbox
+Editing in Tokyo Night. Formatting appears only when you need it.
 
-![Oma Preview in Gruvbox](https://github.com/derluke/oma-preview/releases/download/v0.8.1/03-gruvbox.png)
+![Text selection, resize handle and contextual formatting](https://github.com/derluke/oma-preview/releases/download/v0.9.0/07-editing-controls.png)
+
+The same document in Catppuccin Latte.
+
+![Filled PDF in Catppuccin Latte](https://github.com/derluke/oma-preview/releases/download/v0.9.0/05-editing-latte.png)
+
+And Gruvbox.
+
+![Filled PDF in Gruvbox](https://github.com/derluke/oma-preview/releases/download/v0.9.0/06-editing-gruvbox.png)
+
+Find what matters, without leaving the page.
+
+![Highlighted search results in the continuous reader](https://github.com/derluke/oma-preview/releases/download/v0.9.0/02-find-tokyo-night.png)
 
 </details>
 
-The screenshots show the 0.8.2 controls; the video predates that polish.
-All form details are fictional.
-
 ## What works
 
-- Fast PDF reading with keyboard paging and zoom
+- Continuous reading, trackpad momentum and pointer-anchored zoom
 - On-demand text search with highlighted matches across the current page order
 - Collapsible page-preview sidebar: **Pages** or **F9**; only viewport thumbnails render
-- Native touchpad/touchscreen pinch-to-zoom, anchored under the gesture
 - Text placed anywhere, including on PDFs with no form fields
 - Draw a signature once, retain it locally, and place it again later
 - Open several PDFs, reorder or remove pages, and save the result
@@ -42,6 +55,9 @@ All form details are fictional.
 - Contextual text formatting (size, Sans/Serif/Mono, black/blue/red) and signature sizing
 
 The original documents are never modified. `Save as…` writes a fresh PDF.
+
+<details>
+<summary>How drafts, undo and recovery work</summary>
 
 Use **Ctrl+Z** to undo and **Ctrl+Shift+Z** or **Ctrl+Y** to redo.
 While typing, undo affects the text editor; after
@@ -70,7 +86,24 @@ draft. Restore the original file at its saved location and choose **Try again**,
 or **Open another…**. A byte-identical backup copy is accepted even with a new
 timestamp. Damaged drafts are also kept rather than silently replaced.
 
-## Run and install
+</details>
+
+## Install
+
+[Download the latest release for Arch / Omarchy](https://github.com/derluke/oma-preview/releases/latest), then install the package:
+
+```sh
+sudo pacman -U ./oma-preview-0.9.0-1-x86_64.pkg.tar.zst
+```
+
+Requires Qt 6.11+. The package does not change your default PDF app.
+[Omarchy repository inclusion](https://github.com/omacom/omarchy-pkgs/pull/305)
+is still under review. If you used the local installer before, see the
+[migration notes](packaging/README.md) to avoid an old binary shadowing the package.
+
+<details>
+<summary>Build from source / user-local install</summary>
+
 
 Arch packaging is in `packaging/PKGBUILD`. It installs the application system-wide
 without modifying home directories or changing PDF defaults. The user-local
@@ -96,6 +129,8 @@ discoverable `oma-preview` Codex skill under `~/.codex/skills`, and registers
 Oma Preview as the default handler for `application/pdf`. It does not write to
 `/usr/share/omarchy`.
 
+</details>
+
 ## Agent CLI
 
 The GUI and agents use the same Rust export implementation. The agent surface
@@ -106,8 +141,8 @@ mouse automation:
 oma-preview inspect input.pdf
 oma-preview agent-help
 oma-preview review edit.json
-oma-preview edit edit.json
 oma-preview status
+oma-preview edit edit.json
 oma-preview verify result.pdf
 ```
 
@@ -134,6 +169,9 @@ working inside this repository also receive the same policy from `AGENTS.md`.
 See [AGENTS.md](AGENTS.md) for the required inspect/apply/verify/render workflow.
 
 ## Controls
+
+<details>
+<summary>Keyboard shortcuts and editing guide</summary>
 
 - Tab / Shift+Tab: move between buttons; Space or Enter activates the focused
   button. Keyboard focus gets an outline without changing the mouse layout.
@@ -199,12 +237,15 @@ the visible signature is on the page.
 Line breaks are explicit (Shift+Enter); text does not automatically wrap, so
 the editor and exported PDF use the same lines.
 
+</details>
+
 ## Testing
 
 Run the actual UI in isolated offscreen windows, with private fixtures and state:
 
 ```sh
 cargo build --locked
+cargo build --release --locked
 bash native/build.sh
 python3 tests/offscreen-suite.py
 ```

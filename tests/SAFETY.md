@@ -204,7 +204,7 @@ to run unless `OMA_PREVIEW_DEDICATED_TEST_DESKTOP=1` is explicitly set. That
 variable is an operator assertion, not an isolation mechanism, and those tests
 are not a safe recording driver for a shared desktop.
 
-New recording drivers must use `input_guard.py` around input, with bounded
+New desktop-input recording drivers must use `input_guard.py` around input, with bounded
 app/compositor queries and exact PID + window-address matching. Require an
 expected precondition and observed postcondition for every action. Typing
 requires the exact selected text editor and confirmation after each character.
@@ -222,3 +222,21 @@ between the two. The guard reduces risk; only a dedicated input environment
 keeps unrelated applications out of reach. Do not describe focus checks as
 absolute isolation. The failed temporary demo runner is disabled, not repaired
 or approved for reuse. No replacement recording has been validated yet.
+
+## Release-media capture (no desktop input)
+
+`media-sample.py`, `media-capture.py` and `media-encode.py` form a separate
+offscreen pipeline, not a replacement global-input driver. They generate a
+fictional PDF, copy the real UI into a temporary directory, remove both display
+connections and use private HOME/data/state and a unique ShellId. QtTest events
+are confined to that process. Every typed character checks the expected editor,
+focus and text before/after insertion; failed preconditions abort the take.
+The script never reads a saved signature or sends compositor/input-device events.
+
+It captures app frames with `grabToImage`, confirms resize/correction/export,
+checks the source hash and verifies the output PDF. The pointer and chapter
+captions are explanatory overlays. Pauses/readiness waits are omitted and frames
+are encoded at a fixed rate; do not describe the result as real-time performance
+or physical trackpad footage. Palette changes call the real Theme loader only
+inside the private UI. Inspect the screenshots, exported PDF and encoded film
+before uploading anything. See [MEDIA.md](MEDIA.md) for reproduction.
