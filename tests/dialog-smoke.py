@@ -13,10 +13,13 @@ harness = '''
             interval: 250; running: true; repeat: true
             property int phase: 0
             onTriggered: {
-                var dialogs = [openDialog, addDialog, saveDialog, signatureDialog, closeDialog]
-                if (phase >= 10) {
+                var dialogs = [openDialog, addDialog, saveDialog, signatureDialog, closeDialog, draftRecovery, signatureMenu, pageMenu, bookmarkMenu, pageJump]
+                var modalSteps = dialogs.length * 2
+                if (phase >= modalSteps) {
                     if (window.modalActive) throw new Error("Modal stuck after close")
-                    if (phase === 10) { window.width = 640; phase++; return }
+                    if (phase === modalSteps) { window.width = 640; phase++; return }
+                    if (saveButton.x < fileControls.x + fileControls.width + 40)
+                        throw new Error("Document header overlaps")
                     var groups = toolbarGroups.children
                     for (var i = 0; i < groups.length; i++) {
                         var a = groups[i]
@@ -28,8 +31,8 @@ harness = '''
                                 throw new Error("Toolbar groups overlap")
                         }
                     }
-                    if (phase === 11) { window.width = 1040; phase++; return }
-                    if (phase === 12) { window.width = 800; phase++; return }
+                    if (phase === modalSteps + 1) { window.width = 1040; phase++; return }
+                    if (phase === modalSteps + 2) { window.width = 800; phase++; return }
                     console.log("DIALOG_SMOKE_PASS")
                     Qt.quit()
                     return

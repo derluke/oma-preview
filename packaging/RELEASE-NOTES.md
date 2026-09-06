@@ -1,50 +1,36 @@
-# Folio 0.7.0
+A calmer reader, smoother scrolling, and drafts that remember your work.
 
-A small PDF reader and editor for Omarchy: text anywhere, reusable signatures,
-page assembly, bookmarks, drafts, and visible agent review.
-
-This release adds persistent Recent files, reliable live agent updates with
-state readback, draft recovery, contextual editing controls, explicit multiline
-text, resize handles, live theme updates, and pinch-to-zoom.
+- Continuous reading, page jump and highlighted text search.
+- Trackpad momentum and pointer-anchored zoom. Rest one or two fingers to pause;
+  a quick same-direction scroll continues the glide instead of starting over.
+- Drafts save automatically, including up to 100 undo/redo changes. Reopening
+  restores your work and reading position. Original PDFs remain untouched.
+- Lazy thumbnails, bounded reader reuse and lightweight previews during fast
+  scrolling, with corrected high-DPI page identity and rendering.
+- Quieter controls, improved keyboard editing and live Omarchy theme support.
 
 ## Install on Arch / Omarchy
 
-Download `folio-pdf-0.7.0-1-x86_64.pkg.tar.zst` from this release, then install it:
+Download the x86-64 package below, then run:
 
 ```sh
-sudo pacman -U ./folio-pdf-0.7.0-1-x86_64.pkg.tar.zst
+sudo pacman -U ./oma-preview-0.9.0-1-x86_64.pkg.tar.zst
+oma-preview --version
 ```
 
-Dependencies are resolved by pacman. If you previously used `install.sh`, run
-the repository's `uninstall.sh` first so the old user-local binary does not
-shadow the system package. PDF defaults are optional and are not changed by
-the package:
+The accompanying PKGBUILD is pinned to the tagged source archive and SHA-256.
+The native input module requires Qt 6.11+. Hold-to-pause depends on compositor
+hold-gesture support; detection timing belongs to the compositor/libinput.
+Click-to-stop remains available where hold gestures are unsupported.
 
-```sh
-xdg-mime default org.omarchy.folio.desktop application/pdf
-```
+This remains a prerelease. The isolated 25-check UI suite includes 47 input cases,
+draft/undo recovery, bookmarks, search, raster checks and a 2,048-page fixture.
+The local Wayland probe confirms hold support without injecting desktop input.
+Physical trackpad feel and ARM64 are not established by these automated tests.
 
-The AUR recipe and `.SRCINFO` are attached; AUR publication is pending maintainer
-account setup. `omarchy pkg aur add folio-pdf` will work only after that upload.
-The recipe supports aarch64 source builds, but this release only supplies and
-tests the x86_64 binary package.
+Reopen existing windows after upgrading. If you used the user-local installer,
+its `~/.local/bin/oma-preview` can shadow the system package; see the
+[installation notes](https://github.com/derluke/oma-preview/blob/main/packaging/README.md).
+Omarchy repository inclusion is still under maintainer review.
 
-## Validation
-
-Clean Arch build and tests passed. Desktop tests cover real pointer/keyboard
-editing, sizing, multiline text, draft closing, synthetic signatures, pinch,
-bookmarks, and reopening from Recent. Tested real PDFs include IRS W-9, the
-214-page Bash manual, and NASA's 16 MB annual report, plus a synthetic
-2,140-page stress document. All 27 native W-9 fields survive export.
-
-Typical first visible page: 0.46–0.70 seconds on the test machine. An initial
-cold IRS run took 11.9 seconds; subsequent runs were below 0.55 seconds. Sampled
-page turns were 68–243 ms. See `tests/RESULTS.md` for scope and methodology.
-
-## Current boundaries
-
-Folio fills using overlays, not native form-value editing. Use Shift+Enter for
-line breaks. Undo, automatic wrapping, search/copy, rotation and printing are
-not yet implemented. Agent edits replace the full proposal; read `folio status`
-and preserve user corrections before updating. Export and signing remain under
-the user's control. External account connectors belong to the agent host.
+[Demo and theme screenshots](https://github.com/derluke/oma-preview#readme)

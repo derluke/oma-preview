@@ -8,3 +8,4 @@ __pycache__/
 /packaging/pkg/
 /packaging/*.tar.gz
 /packaging/*.pkg.tar.zst
+/ui/native/

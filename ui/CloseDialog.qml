@@ -1,54 +1,46 @@
 import QtQuick
+import QtQuick.Controls
 import "."
 
-Item {
+Popup {
     id: root
     property var cancelButton: cancelButton
     property var discardButton: discardButton
-    visible: false
-    z: 1000
-    signal saveRequested()
-    signal keepRequested()
     signal discardRequested()
-
-    function open() { visible = true }
-    function close() { visible = false }
-
-    Rectangle {
-        anchors.fill: parent
-        color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.82)
-        MouseArea { anchors.fill: parent }
-    }
-
-    Rectangle {
-        width: Math.min(440, parent.width - 40); height: 176
-        anchors.centerIn: parent
-        radius: Theme.radius
-        color: Theme.chrome
-        border.width: 1; border.color: Theme.hairline
+    width: Math.min(440, parent.width - 40)
+    height: 176
+    x: (parent.width - width) / 2
+    y: (parent.height - height) / 2
+    padding: 0
+    modal: true
+    dim: true
+    focus: true
+    popupType: Popup.Item
+    closePolicy: Popup.CloseOnEscape
+    onOpened: cancelButton.forceActiveFocus(Qt.TabFocusReason)
+    background: Rectangle { radius: Theme.radius; color: Theme.chrome; border.color: Theme.hairline }
+    Overlay.modal: Rectangle { color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.82) }
+    contentItem: Item {
 
         Text {
             anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
             anchors.margins: 22
-            text: "Keep your changes?"
+            text: "Discard draft and close?"
             color: Theme.foreground; font.family: Theme.fontFamily; font.pixelSize: 18
         }
         Text {
             anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top
             anchors.leftMargin: 22; anchors.rightMargin: 22; anchors.topMargin: 58
             wrapMode: Text.WordWrap
-            text: "Your draft is already safe. Save a PDF now, keep the draft for later, or discard these edits."
-            color: Theme.muted; font.family: Theme.fontFamily; font.pixelSize: Theme.textSize
+            text: "This removes the saved edits and undo history. Original and exported PDFs are kept."
+            color: Theme.secondaryText; font.family: Theme.fontFamily; font.pixelSize: Theme.textSize
         }
         Row {
             anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 18
             spacing: 4
-            ToolButton { id: cancelButton; label: "Cancel"; onActivated: root.close() }
-            ToolButton { id: discardButton; label: "Discard"; danger: true; onActivated: { root.close(); root.discardRequested() } }
-            ToolButton { label: "Keep draft"; chosen: true; onActivated: { root.close(); root.keepRequested() } }
-            ToolButton { label: "Save PDF…"; onActivated: { root.close(); root.saveRequested() } }
+            ToolButton { id: cancelButton; label: "Cancel"; chosen: true; onActivated: root.close() }
+            ToolButton { id: discardButton; label: "Discard and close"; danger: true; onActivated: { root.close(); root.discardRequested() } }
         }
     }
 
-    Shortcut { sequence: "Escape"; enabled: root.visible; onActivated: root.close() }
 }

@@ -2,12 +2,14 @@ use anyhow::{Context, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+mod search;
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "c", rename_all = "snake_case")]
@@ -68,7 +70,40 @@ enum Request {
         id: u64,
         key: String,
     },
+    ViewGet {
+        id: u64,
+        key: String,
+    },
+    ViewSave {
+        id: u64,
+        key: String,
+        view: Value,
+    },
     Quit,
+}
+
+impl Request {
+    fn context(&self) -> (Option<u64>, &'static str) {
+        let (id, operation) = match self {
+            Self::RecentsGet { id } => (*id, "recents_get"),
+            Self::RecentsClear { id } => (*id, "recents_clear"),
+            Self::RecentAdd { id, .. } => (*id, "recent_add"),
+            Self::Inspect { id, .. } => (*id, "inspect"),
+            Self::Export { id, .. } => (*id, "export"),
+            Self::SignatureGet { id } => (*id, "signature_get"),
+            Self::SignatureSave { id, .. } => (*id, "signature_save"),
+            Self::BookmarksGet { id, .. } => (*id, "bookmarks_get"),
+            Self::BookmarksSave { id, .. } => (*id, "bookmarks_save"),
+            Self::LoadSpec { id, .. } => (*id, "load_spec"),
+            Self::DraftGet { id, .. } => (*id, "draft_get"),
+            Self::DraftSave { id, .. } => (*id, "draft_save"),
+            Self::DraftDelete { id, .. } => (*id, "draft_delete"),
+            Self::ViewGet { id, .. } => (*id, "view_get"),
+            Self::ViewSave { id, .. } => (*id, "view_save"),
+            Self::Quit => return (None, "quit"),
+        };
+        (Some(id), operation)
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -136,6 +171,7 @@ fn main() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("--backend") => backend(),
+        Some("--search-worker") => search::run(),
         Some("inspect") => command_inspect(&args[1..]),
         Some("apply") => command_apply(&args[1..]),
         Some("review") => command_review(&args[1..]),
@@ -721,6 +757,7 @@ fn ui_dir(exe: &Path) -> Result<PathBuf> {
 fn backend() -> Result<()> {
     let stdin = io::stdin();
     let mut out = io::stdout().lock();
+    let mut sources = BTreeMap::new();
     for line in stdin.lock().lines() {
         let line = match line {
             Ok(v) => v,
@@ -746,8 +783,12 @@ fn backend() -> Result<()> {
             emit(&mut out, json!({"t":"quit_ready"}));
             break;
         }
-        if let Err(e) = handle(request, &mut out) {
-            emit(&mut out, json!({"t":"error","msg":format!("{e:#}")}));
+        let (id, operation) = request.context();
+        if let Err(e) = handle(request, &mut out, &mut sources) {
+            emit(
+                &mut out,
+                json!({"t":"error","id":id,"operation":operation,"msg":format!("{e:#}")}),
+            );
         }
     }
     Ok(())
@@ -759,7 +800,11 @@ fn emit(out: &mut impl Write, value: Value) {
     let _ = out.flush();
 }
 
-fn handle(request: Request, out: &mut impl Write) -> Result<()> {
+fn handle(
+    request: Request,
+    out: &mut impl Write,
+    sources: &mut BTreeMap<String, SourceStamp>,
+) -> Result<()> {
     match request {
         Request::RecentsGet { id } => {
             emit(out, json!({"t":"recents","id":id,"paths":recent_paths()}));
@@ -778,7 +823,10 @@ fn handle(request: Request, out: &mut impl Write) -> Result<()> {
             emit(out, json!({"t":"recents","id":id,"paths":paths}));
         }
         Request::Inspect { id, path } => {
+            let before = source_stamp(&path)?;
             let pages = inspect(Path::new(&path))?;
+            require_source(&path, &before)?;
+            sources.insert(path.clone(), before);
             emit(
                 out,
                 json!({"t":"inspected","id":id,"path":path,"pages":pages}),
@@ -790,6 +838,15 @@ fn handle(request: Request, out: &mut impl Write) -> Result<()> {
             pages,
             annotations,
         } => {
+            for path in pages
+                .iter()
+                .map(|page| page.path.as_str())
+                .collect::<BTreeSet<_>>()
+            {
+                if let Some(stamp) = sources.get(path) {
+                    require_source(path, stamp)?;
+                }
+            }
             export(Path::new(&dest), &pages, &annotations)?;
             emit(out, json!({"t":"exported","id":id,"path":dest}));
         }
@@ -822,6 +879,9 @@ fn handle(request: Request, out: &mut impl Write) -> Result<()> {
         } => {
             let spec_path = fs::canonicalize(&path).with_context(|| format!("open {path}"))?;
             let prepared = prepare_agent_spec(&spec_path, allow_saved_signature)?;
+            for page in &prepared.pages {
+                sources.insert(page.path.clone(), source_stamp(&page.path)?);
+            }
             emit(
                 out,
                 json!({
@@ -833,11 +893,33 @@ fn handle(request: Request, out: &mut impl Write) -> Result<()> {
                 }),
             );
         }
-        Request::DraftGet { id, key } => {
-            let draft: Value = read_json(&draft_path(&key)).unwrap_or(Value::Null);
-            emit(out, json!({"t":"draft_loaded","id":id,"draft":draft}));
-        }
-        Request::DraftSave { id, key, draft } => {
+        Request::DraftGet { id, key } => match load_draft(&draft_path(&key), sources) {
+            Ok(draft) => emit(out, json!({"t":"draft_loaded","id":id,"draft":draft})),
+            Err(error) => emit(
+                out,
+                json!({"t":"draft_loaded","id":id,"draft":null,"problem":format!("{error:#}")}),
+            ),
+        },
+        Request::DraftSave { id, key, mut draft } => {
+            let previous = read_draft(&draft_path(&key))?;
+            let expected = draft_source_stamps(&previous)?;
+            let mut stamps = BTreeMap::new();
+            for path in draft_sources(&draft) {
+                let stamp = match expected.get(&path).or_else(|| sources.get(&path)) {
+                    Some(stamp) => checked_source(&path, stamp)?,
+                    None => source_stamp(&path)?,
+                };
+                let stamp = if stamp.sha256.is_none() {
+                    hash_source(&path, stamp)?
+                } else {
+                    stamp
+                };
+                stamps.insert(path, stamp);
+            }
+            draft
+                .as_object_mut()
+                .context("invalid draft workspace")?
+                .insert("source_stamps".into(), serde_json::to_value(stamps)?);
             write_json(&draft_path(&key), &draft)?;
             emit(out, json!({"t":"draft_saved","id":id}));
         }
@@ -847,6 +929,18 @@ fn handle(request: Request, out: &mut impl Write) -> Result<()> {
                 fs::remove_file(file)?;
             }
             emit(out, json!({"t":"draft_deleted","id":id}));
+        }
+        Request::ViewGet { id, key } => {
+            let view: Value =
+                read_json(&draft_path(&key).with_extension("view.json")).unwrap_or(Value::Null);
+            emit(
+                out,
+                json!({"t":"view_loaded", "id":id, "key":key, "view":view}),
+            );
+        }
+        Request::ViewSave { id, key, view } => {
+            write_json(&draft_path(&key).with_extension("view.json"), &view)?;
+            emit(out, json!({"t":"view_saved", "id":id}));
         }
         Request::Quit => unreachable!(),
     }
@@ -1131,6 +1225,171 @@ fn recent_paths() -> Vec<String> {
     paths
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct SourceStamp {
+    bytes: u64,
+    modified_ns: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    sha256: Option<String>,
+}
+
+fn source_stamp(path: &str) -> Result<SourceStamp> {
+    let meta = fs::metadata(path).with_context(|| format!("Cannot access source PDF: {path}"))?;
+    if !meta.is_file() {
+        bail!("Source PDF is not a file: {path}");
+    }
+    Ok(SourceStamp {
+        bytes: meta.len(),
+        modified_ns: meta
+            .modified()?
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_nanos()
+            .to_string(),
+        sha256: None,
+    })
+}
+
+fn require_source(path: &str, expected: &SourceStamp) -> Result<()> {
+    checked_source(path, expected).map(|_| ())
+}
+
+fn hash_source(path: &str, mut stamp: SourceStamp) -> Result<SourceStamp> {
+    let mut file =
+        fs::File::open(path).with_context(|| format!("Cannot read source PDF: {path}"))?;
+    let mut hash = Sha256::new();
+    let mut buffer = [0u8; 65536];
+    loop {
+        let count = file
+            .read(&mut buffer)
+            .with_context(|| format!("Cannot read source PDF: {path}"))?;
+        if count == 0 {
+            break;
+        }
+        hash.update(&buffer[..count]);
+    }
+    let after = source_stamp(path)?;
+    if after.bytes != stamp.bytes || after.modified_ns != stamp.modified_ns {
+        bail!("Source PDF changed while it was being checked: {path}");
+    }
+    stamp.sha256 = Some(format!("{:x}", hash.finalize()));
+    Ok(stamp)
+}
+
+fn checked_source(path: &str, expected: &SourceStamp) -> Result<SourceStamp> {
+    let mut actual = source_stamp(path)?;
+    if actual.bytes == expected.bytes && actual.modified_ns == expected.modified_ns {
+        actual.sha256 = expected.sha256.clone();
+        return Ok(actual);
+    }
+    // Restoring the identical PDF from a backup may change its timestamp.
+    // Hash only on first draft save or when metadata changes, not on each edit.
+    if actual.bytes != expected.bytes
+        || expected.sha256.is_none()
+        || hash_source(path, actual.clone())?.sha256 != expected.sha256
+    {
+        bail!("Source PDF has changed: {path}. Restore the original file before continuing.");
+    }
+    actual.sha256 = expected.sha256.clone();
+    Ok(actual)
+}
+
+fn draft_sources(draft: &Value) -> BTreeSet<String> {
+    let mut paths = BTreeSet::new();
+    let mut collect = |pages: &Value| {
+        if let Some(pages) = pages.as_array() {
+            for page in pages {
+                if let Some(path) = page.get("path").and_then(Value::as_str) {
+                    paths.insert(path.to_owned());
+                }
+            }
+        }
+    };
+    collect(&draft["pages"]);
+    let history = &draft["history"];
+    collect(&history["page_records"]);
+    collect(&history["current"]["pages"]);
+    for stack in ["undo", "redo"] {
+        if let Some(snapshots) = history[stack].as_array() {
+            for snapshot in snapshots {
+                collect(&snapshot["pages"]);
+            }
+        }
+    }
+    if let Some(layouts) = history["layouts"].as_array() {
+        for layout in layouts {
+            collect(layout);
+        }
+    }
+    paths
+}
+
+fn draft_source_stamps(draft: &Value) -> Result<BTreeMap<String, SourceStamp>> {
+    match draft.get("source_stamps") {
+        Some(stamps) => serde_json::from_value(stamps.clone())
+            .context("Cannot read the draft's source references"),
+        None => Ok(BTreeMap::new()), // Earlier drafts did not record added-file metadata.
+    }
+}
+
+fn read_draft(path: &Path) -> Result<Value> {
+    match fs::read(path) {
+        Ok(bytes) => serde_json::from_slice(&bytes).with_context(|| {
+            format!(
+                "Cannot read the saved draft. It is kept at {}",
+                path.display()
+            )
+        }),
+        Err(error)
+            if matches!(
+                error.kind(),
+                io::ErrorKind::NotFound | io::ErrorKind::NotADirectory
+            ) =>
+        {
+            Ok(Value::Null)
+        }
+        Err(error) => {
+            Err(error).context("Cannot access the saved draft; it has been kept unchanged")
+        }
+    }
+}
+
+fn load_draft(path: &Path, sources: &mut BTreeMap<String, SourceStamp>) -> Result<Value> {
+    let draft = read_draft(path)?;
+    if !draft.is_null()
+        && (!matches!(draft["schema"].as_u64(), Some(1 | 2))
+            || !draft["pages"].as_array().is_some_and(|pages| {
+                !pages.is_empty()
+                    && pages.iter().all(|page| {
+                        page["path"].as_str().is_some_and(|path| !path.is_empty())
+                            && page["key"].as_str().is_some_and(|key| !key.is_empty())
+                            && page["page"].as_u64().is_some_and(|page| page > 0)
+                            && page["width"].as_f64().is_some_and(|width| width > 0.0)
+                            && page["height"].as_f64().is_some_and(|height| height > 0.0)
+                    })
+            })
+            || !draft["annotations"].is_array())
+    {
+        bail!(
+            "Unsupported or damaged draft. It is kept at {}",
+            path.display()
+        );
+    }
+    let expected = draft_source_stamps(&draft)?;
+    let mut verified = BTreeMap::new();
+    for path in draft_sources(&draft) {
+        let actual = if let Some(stamp) = expected.get(&path) {
+            checked_source(&path, stamp)?
+        } else if draft.get("source_stamps").is_some() {
+            bail!("The draft is missing a source reference: {path}");
+        } else {
+            source_stamp(&path)?
+        };
+        verified.insert(path, actual);
+    }
+    sources.extend(verified);
+    Ok(draft)
+}
+
 fn draft_path(key: &str) -> PathBuf {
     let mut digest = Sha256::new();
     digest.update(b"folio-draft-v1\0");
@@ -1174,6 +1433,45 @@ fn write_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn source_hash_recognizes_restored_bytes_with_a_new_timestamp() {
+        let private = tempfile::tempdir().unwrap();
+        let path = private.path().join("source.pdf");
+        let name = path.to_str().unwrap();
+        fs::write(&path, b"original").unwrap();
+        let original = hash_source(name, source_stamp(name).unwrap()).unwrap();
+        fs::write(&path, b"ORIGINAL").unwrap();
+        assert!(checked_source(name, &original).is_err());
+        fs::write(&path, b"original").unwrap();
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_times(
+                fs::FileTimes::new()
+                    .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(123)),
+            )
+            .unwrap();
+        let restored = checked_source(name, &original).unwrap();
+        assert_eq!(restored.sha256, original.sha256);
+        assert_ne!(restored.modified_ns, original.modified_ns);
+    }
+
+    #[test]
+    fn draft_sources_include_all_history_encodings() {
+        let draft = json!({"pages":[{"path":"open"}], "annotations":[{"path":"ignore"}],
+            "history":{"page_records":[{"path":"pool"}], "layouts":[[{"path":"layout"}]],
+                "current":{"pages":[{"path":"current"}]}, "undo":[{"pages":[{"path":"undo"}]}],
+                "redo":[{"pages":[{"path":"redo"}]}]}});
+        assert_eq!(
+            draft_sources(&draft),
+            ["open", "pool", "layout", "current", "undo", "redo"]
+                .into_iter()
+                .map(str::to_owned)
+                .collect()
+        );
+    }
 
     #[test]
     fn annotation_text_is_xml_escaped_without_losing_unicode() {

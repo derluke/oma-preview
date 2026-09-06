@@ -1,7 +1,20 @@
 module OmaPreview
+singleton TrackpadContact 1.0 TrackpadContact.qml
+MomentumScroll 1.0 MomentumScroll.qml
+ReadingPage 1.0 ReadingPage.qml
+AnnotationIndex 1.0 AnnotationIndex.qml
+AnnotationLoader 1.0 AnnotationLoader.qml
+SearchController 1.0 SearchController.qml
+FindBar 1.0 FindBar.qml
+SearchHighlight 1.0 SearchHighlight.qml
 singleton Theme 1.0 Theme.qml
 Backend 1.0 Backend.qml
 ToolButton 1.0 ToolButton.qml
+ThemedMenu 1.0 ThemedMenu.qml
+PageJump 1.0 PageJump.qml
+PdfRaster 1.0 PdfRaster.qml
+PdfDocumentPool 1.0 PdfDocumentPool.qml
 SignatureDialog 1.0 SignatureDialog.qml
 Ipc 1.0 Ipc.qml
 CloseDialog 1.0 CloseDialog.qml
+DraftRecovery 1.0 DraftRecovery.qml

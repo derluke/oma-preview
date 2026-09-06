@@ -47,10 +47,11 @@ QtObject {
             if (!root.previewWindow) return JSON.stringify({ready:false})
             var w = root.previewWindow
             return JSON.stringify({ready:true, busy:w.busy, revision:w.reviewRevision,
-                error:w.reviewError, dirty:w.dirty, editing:w.editingAnnotation >= 0,
+                error:w.draftProblem || w.reviewError, dirty:w.dirty, editing:w.editingAnnotation >= 0,
                 can_undo:w.undoStack.length > 0, can_redo:w.redoStack.length > 0,
                 pid:Number(Quickshell.processId), active:w.active, modal:w.modalActive, dialog:w.activeDialog,
                 selected_annotation:w.selectedAnnotation, tool:w.tool, zoom:w.zoom,
+                trackpad_hold:TrackpadContact.available,
                 current_page:w.currentIndex + 1, output:w.suggestedOutput,
                 pages:w.pagePayload(), annotations:w.annotationPayload()})
         }
@@ -115,13 +116,13 @@ QtObject {
         }
         function annotationResizePoint(index: int): string {
             if (!root.annotationRepeater || index < 0) return ""
-            var loader = root.annotationRepeater.itemAt(index)
+            var loader = root.annotationRepeater.itemForAnnotation(index)
             if (!loader || !loader.item || !loader.item.resizeHandle) return ""
             return root.centre(loader.item.resizeHandle)
         }
         function editingText(index: int): bool {
             if (!root.annotationRepeater || index < 0) return false
-            var loader = root.annotationRepeater.itemAt(index)
+            var loader = root.annotationRepeater.itemForAnnotation(index)
             return loader && loader.item ? loader.item.activeFocus : false
         }
         function annotationStrokeCount(index: int): int {

@@ -1,4 +1,21 @@
-# Unreleased
+# 0.9.0
+
+- Continuous reading with keyboard navigation, page jump and highlighted text search.
+- Trackpad momentum, additive repeat swipes and pointer-anchored pinch zoom.
+  Wayland hold gestures pause coasting before tap completion; a quick continued
+  scroll retains same-direction momentum. Mouse wheels remain precise steps.
+- Atomic draft saving on close and document switches, with up to 100 undo/redo
+  changes restored on reopening. Missing or changed sources pause recovery safely.
+- Restore reading position, zoom and sidebar state without creating an edit draft.
+- Lazy thumbnails, bounded reader reuse and lightweight fast-scroll previews;
+  avoid displaying the previous page's pixels when switching pages at high DPI.
+- Quieter controls, readable thumbnails on dark themes, page actions and improved
+  annotation keyboard editing, sizing and focus handling.
+- Add an app-local native hold-gesture module (Qt 6.11+), packaged with the UI.
+- Expand isolated regression coverage for input, search, recovery, rendering and
+  2,048-page documents. Physical trackpad feel and ARM64 remain separate checks.
+
+# 0.8.2
 
 - Collapsible page-preview sidebar (Pages/F9), with viewport-only thumbnail
   rendering and renderer release on collapse; verified against 2,140 pages.

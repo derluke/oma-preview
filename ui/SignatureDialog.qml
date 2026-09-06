@@ -1,28 +1,32 @@
 import QtQuick
+import QtQuick.Controls
 import "."
 
-Rectangle {
+Popup {
     id: root
     signal accepted(var strokes)
     signal cancelled()
     property var strokes: []
     property var activeStroke: []
-    visible: false
-    color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.82)
-    z: 100
-
-    function open() { strokes = []; activeStroke = []; visible = true; pad.requestPaint() }
-    function close() { visible = false }
-
-    MouseArea { anchors.fill: parent }
-    Rectangle {
-        width: Math.min(560, parent.width - 48)
-        height: 310
-        anchors.centerIn: parent
-        color: Theme.chrome
-        border.width: 1
-        border.color: Theme.hairline
-        radius: Theme.radius
+    property bool didAccept: false
+    readonly property alias cancelButton: cancelButton
+    readonly property alias clearButton: clearButton
+    readonly property alias saveButton: saveButton
+    width: Math.min(560, parent.width - 48)
+    height: Math.min(310, parent.height - 32)
+    x: (parent.width - width) / 2
+    y: (parent.height - height) / 2
+    padding: 0
+    modal: true
+    dim: true
+    focus: true
+    popupType: Popup.Item
+    closePolicy: Popup.CloseOnEscape
+    onOpened: { didAccept = false; strokes = []; activeStroke = []; pad.requestPaint(); cancelButton.forceActiveFocus(Qt.TabFocusReason) }
+    onClosed: if (!didAccept) cancelled()
+    background: Rectangle { color: Theme.chrome; border.color: Theme.hairline; radius: Theme.radius }
+    Overlay.modal: Rectangle { color: Qt.rgba(Theme.background.r, Theme.background.g, Theme.background.b, 0.82) }
+    contentItem: Item {
 
         Text {
             anchors.left: parent.left; anchors.top: parent.top
@@ -76,9 +80,9 @@ Rectangle {
             anchors.right: parent.right; anchors.bottom: parent.bottom
             anchors.margins: 14
             spacing: Theme.gap
-            ToolButton { label: "Clear"; onActivated: { root.strokes = []; root.activeStroke = []; pad.requestPaint() } }
-            ToolButton { label: "Cancel"; onActivated: { root.close(); root.cancelled() } }
-            ToolButton { label: "Save signature"; enabled: root.strokes.length > 0; chosen: true; onActivated: { root.accepted(root.strokes); root.close() } }
+            ToolButton { id: clearButton; label: "Clear"; onActivated: { root.strokes = []; root.activeStroke = []; pad.requestPaint() } }
+            ToolButton { id: cancelButton; label: "Cancel"; onActivated: root.close() }
+            ToolButton { id: saveButton; label: "Save signature"; enabled: root.strokes.length > 0; chosen: true; onActivated: { root.didAccept = true; root.accepted(root.strokes); root.close() } }
         }
     }
 }

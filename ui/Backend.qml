@@ -11,10 +11,11 @@ Item {
     signal signatureSaved()
     signal bookmarksLoaded(string path, var pages)
     signal reviewLoaded(string output, var pages, var annotations)
-    signal draftLoaded(var draft)
-    signal draftSaved()
-    signal draftDeleted()
-    signal failed(string message)
+    signal draftLoaded(var draft, string problem)
+    signal draftSaved(int requestId)
+    signal draftDeleted(int requestId)
+    signal viewLoaded(string key, var view)
+    signal failed(string message, string operation, int requestId)
     signal quitReady()
 
     property int sequence: 0
@@ -28,9 +29,10 @@ Item {
     function addRecent(path) { send({c:"recent_add", id:nextId(), path:path}) }
     function send(value) {
         var line = JSON.stringify(value) + "\n"
-        if (queueing) { pending.push(line); return }
-        if (!child.running) { failed("The document service is not running."); return }
+        if (queueing) { pending.push(line); return true }
+        if (!child.running) { failed("The document service is not running.", "", -1); return false }
         child.write(line)
+        return true
     }
     function inspect(path) { var id = nextId(); send({c:"inspect", id:id, path:path}); return id }
     function exportPdf(dest, pages, annotations) { var id = nextId(); send({c:"export", id:id, dest:dest, pages:pages, annotations:annotations}); return id }
@@ -40,8 +42,10 @@ Item {
     function saveBookmarks(path, pages) { send({c:"bookmarks_save", id:nextId(), path:path, pages:pages}) }
     function loadSpec(path, allowSavedSignature) { send({c:"load_spec", id:nextId(), path:path, allow_saved_signature:allowSavedSignature}) }
     function loadDraft(key) { send({c:"draft_get", id:nextId(), key:key}) }
-    function saveDraft(key, draft) { send({c:"draft_save", id:nextId(), key:key, draft:draft}) }
-    function deleteDraft(key) { send({c:"draft_delete", id:nextId(), key:key}) }
+    function saveDraft(key, draft) { var id = nextId(); return send({c:"draft_save", id:id, key:key, draft:draft}) ? id : -1 }
+    function deleteDraft(key) { var id = nextId(); return send({c:"draft_delete", id:id, key:key}) ? id : -1 }
+    function loadView(key) { send({c:"view_get", id:nextId(), key:key}) }
+    function saveView(key, view) { send({c:"view_save", id:nextId(), key:key, view:view}) }
     function quit() {
         if (quitting) return
         quitting = true
@@ -51,7 +55,7 @@ Item {
     function receive(line) {
         if (!line) return
         var m
-        try { m = JSON.parse(line) } catch (e) { failed("The document service returned an unreadable response."); return }
+        try { m = JSON.parse(line) } catch (e) { failed("The document service returned an unreadable response.", "", -1); return }
         if (m.t === "inspected") inspected(m.id, m.path, m.pages || [])
         else if (m.t === "recents") recentsLoaded(m.paths || [])
         else if (m.t === "exported") exported(m.id, m.path)
@@ -59,11 +63,12 @@ Item {
         else if (m.t === "signature_saved") signatureSaved()
         else if (m.t === "bookmarks") bookmarksLoaded(m.path, m.pages || [])
         else if (m.t === "review_loaded") reviewLoaded(m.output || "", m.pages || [], m.annotations || [])
-        else if (m.t === "draft_loaded") draftLoaded(m.draft)
-        else if (m.t === "draft_saved") draftSaved()
-        else if (m.t === "draft_deleted") draftDeleted()
+        else if (m.t === "draft_loaded") draftLoaded(m.draft, m.problem || "")
+        else if (m.t === "draft_saved") draftSaved(m.id)
+        else if (m.t === "draft_deleted") draftDeleted(m.id)
+        else if (m.t === "view_loaded") viewLoaded(m.key, m.view)
         else if (m.t === "quit_ready") quitReady()
-        else if (m.t === "error") failed(m.msg || "The operation failed.")
+        else if (m.t === "error") failed(m.msg || "The operation failed.", m.operation || "", m.id === undefined ? -1 : m.id)
     }
 
     Process {
@@ -80,11 +85,11 @@ Item {
         onRunningChanged: if (root.queueing && !child.running) {
             root.queueing = false
             root.pending = []
-            root.failed("Oma Preview's document service could not start.")
+            root.failed("Oma Preview's document service could not start.", "", -1)
         }
         onExited: function(code, status) {
             if (root.quitting) root.quitReady()
-            else root.failed("Oma Preview's document service stopped unexpectedly.")
+            else root.failed("Oma Preview's document service stopped unexpectedly.", "", -1)
         }
     }
 }

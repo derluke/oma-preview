@@ -15,6 +15,24 @@ QtObject {
     readonly property color hover: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.09)
     readonly property color selected: Qt.rgba(accent.r, accent.g, accent.b, 0.18)
     readonly property color hairline: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.14)
+    readonly property color secondaryText: secondaryColor()
+    function luminance(color) {
+        function linear(v) { return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
+        return 0.2126 * linear(color.r) + 0.7152 * linear(color.g) + 0.0722 * linear(color.b)
+    }
+    function contrast(a, b) {
+        var x = luminance(a), y = luminance(b)
+        return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
+    }
+    function secondaryColor() {
+        // Preserve the palette; increase foreground contribution only as needed.
+        // A small margin covers rounding when Qt materialises an 8-bit colour.
+        for (var opacity = 0.72; opacity < 1; opacity += 0.02) {
+            var candidate = Qt.tint(background, Qt.rgba(foreground.r, foreground.g, foreground.b, opacity))
+            if (contrast(candidate, chrome) >= 4.6) return candidate
+        }
+        return foreground
+    }
     readonly property string fontFamily: "sans-serif"
     readonly property int textSize: 13
     readonly property int smallSize: 12

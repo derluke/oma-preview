@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.16)
+project(OmaPreviewContact LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_AUTOMOC ON)
+find_package(Qt6 6.11 REQUIRED COMPONENTS Gui Qml WaylandClient)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(Wayland REQUIRED IMPORTED_TARGET wayland-client)
+pkg_get_variable(PROTOCOLS wayland-protocols pkgdatadir)
+find_program(WAYLAND_SCANNER wayland-scanner REQUIRED)
+set(PROTOCOL "${PROTOCOLS}/unstable/pointer-gestures/pointer-gestures-unstable-v1.xml")
+add_custom_command(OUTPUT gestures-client.h gestures-protocol.c
+    COMMAND "${WAYLAND_SCANNER}" client-header "${PROTOCOL}" gestures-client.h
+    COMMAND "${WAYLAND_SCANNER}" private-code "${PROTOCOL}" gestures-protocol.c
+    DEPENDS "${PROTOCOL}")
+add_library(omapreviewcontact MODULE ContactPlugin.cpp gestures-protocol.c gestures-client.h)
+target_include_directories(omapreviewcontact PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+target_link_libraries(omapreviewcontact PRIVATE Qt6::Gui Qt6::Qml Qt6::WaylandClient PkgConfig::Wayland)
+set_target_properties(omapreviewcontact PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/qml")
+configure_file(qmldir "${CMAKE_CURRENT_BINARY_DIR}/qml/qmldir" COPYONLY)
+configure_file(ContactSource.qml "${CMAKE_CURRENT_BINARY_DIR}/qml/ContactSource.qml" COPYONLY)

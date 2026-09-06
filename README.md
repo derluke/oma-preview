@@ -30,12 +30,13 @@ All form details are fictional.
 ## What works
 
 - Fast PDF reading with keyboard paging and zoom
+- On-demand text search with highlighted matches across the current page order
 - Collapsible page-preview sidebar: **Pages** or **F9**; only viewport thumbnails render
 - Native touchpad/touchscreen pinch-to-zoom, anchored under the gesture
 - Text placed anywhere, including on PDFs with no form fields
 - Draw a signature once, retain it locally, and place it again later
 - Open several PDFs, reorder or remove pages, and save the result
-- In-session undo/redo for page assembly and annotation edits (up to 100 changes)
+- Persistent undo/redo for page assembly and annotation edits (up to 100 changes)
 - Per-document reading bookmarks
 - Live Omarchy colours and a native Wayland window; running windows follow theme changes
 - Contextual text formatting (size, Sans/Serif/Mono, black/blue/red) and signature sizing
@@ -46,15 +47,28 @@ Use **Ctrl+Z** to undo and **Ctrl+Shift+Z** or **Ctrl+Y** to redo.
 While typing, undo affects the text editor; after
 finishing, the text edit is one document-level step. Moves and resizes are
 one step per gesture. Deleted pages return with their annotations. Adding PDFs
-and live agent proposals are undoable too. Export retains session history,
-but undo does not change an already exported file. Opening another document
-or restarting starts a new history; drafts preserve the edits, not the undo stack.
+and live agent proposals are undoable too. Export retains the working draft and
+history, but undo does not change an already exported file. Reopening the original
+document restores both undo and redo, even after undoing back to an unchanged PDF.
 Reading bookmarks and the saved signature library are separate from document history.
 
 Edits are atomically autosaved as private, source-fingerprinted JSON drafts in
-`~/.local/state/folio/drafts`. Reopening the same source restores its workspace.
-Closing with unexported edits offers Save PDF, Keep draft, Discard, and Cancel;
-a crash or forced shutdown is covered by the same autosave.
+`~/.local/state/folio/drafts`. Reopening the same source restores its workspace,
+including added PDFs, edits, undo/redo and reading position. Closing (or **Ctrl+W**)
+saves the working draft and waits for confirmation, without a dialog. A failed
+draft write leaves the window open with an error. The quiet **Draft saved** footer
+appears only after an acknowledged write. **Ctrl+Shift+W** explicitly discards the
+draft and closes, with a confirmation; original and exported PDFs are kept.
+Autosave also helps recover after crashes, though edits
+since the last completed autosave can still be lost.
+Opening another PDF also waits for the current draft to save; if that fails,
+the current document and edits stay open.
+
+Drafts reference their source PDFs, including files used only by undo/redo.
+If a required file is missing or changed, recovery pauses without replacing the
+draft. Restore the original file at its saved location and choose **Try again**,
+or **Open another…**. A byte-identical backup copy is accepted even with a new
+timestamp. Damaged drafts are also kept rather than silently replaced.
 
 ## Run and install
 
@@ -63,9 +77,18 @@ without modifying home directories or changing PDF defaults. The user-local
 installer below remains available for development.
 
 ```sh
+bash native/build.sh
 cargo run -- --gui document.pdf
 ./install.sh
 ```
+
+The small native input module requires Qt 6.11+, CMake, a C++ compiler,
+pkg-config and `wayland-protocols` to build. It receives Wayland hold gestures
+inside the app's existing connection: one or two fingers down pause coasting,
+while a quick follow-on scroll can continue it. No raw input access, extra
+permissions or compositor configuration is needed. Detection timing belongs
+to the compositor/libinput; it is not a promise of zero-latency physical contact.
+Without hold-protocol support, mouse-press stopping remains available.
 
 The installer is user-local: it puts the binary in `~/.local/bin`, places the
 UI and desktop entry under `~/.local/share`, installs the automatically
@@ -112,25 +135,53 @@ See [AGENTS.md](AGENTS.md) for the required inspect/apply/verify/render workflow
 
 ## Controls
 
+- Tab / Shift+Tab: move between buttons; Space or Enter activates the focused
+  button. Keyboard focus gets an outline without changing the mouse layout.
 - `Ctrl+O`: replace the workspace with one or more PDFs
 - `Ctrl+Shift+O`: append PDFs
 - **Recent**: reopen one of the last ten PDFs; missing files are hidden and
   **Clear recent files** removes the history. Reopening restores its saved draft.
+- Reading position, zoom, layout and sidebar visibility are remembered locally
+  when you leave a document—even without edits. Changed source files start fresh.
 - Left/Right: previous/next page
-- `Ctrl+Home` / `Ctrl+End`: first/last page
+- Reading is the default: Up/Down scroll; Page Up/Down or Space/Shift+Space move a
+  screenful. Continuous layout scrolls across pages with momentum and loads only
+  nearby pages. Toggle **Continuous** for single-page viewing. With a text box or
+  signature selected, arrows nudge it; Shift+arrows move in larger steps. While
+  typing, arrows still move/select text. Pinch zoom preserves its anchor and sharpens the
+  PDF after the gesture instead of rerendering on every change.
+- `Ctrl+Home` / `Ctrl+End`: first/last page, stopping any active scroll glide
+- `Ctrl+G`: go directly to a page in the current workspace. Enter confirms;
+  Escape cancels without changing your position.
+- `Ctrl+F`: open Find. Enter / Shift+Enter in the field or F3 / Shift+F3 move
+  between matches; Escape closes it. Search starts near the current page and
+  wraps around; results appear as it works. Moving/removing pages or undoing
+  refreshes the results automatically.
 - `Ctrl+B`: bookmark the current source page
+- Right-click a thumbnail, click its numbered **Page** caption, or press
+  `Shift+F10` while reading: bookmark, move or remove that page. Escape closes the menu.
+- **Bookmarks**: mark/unmark the current page or jump to a saved page. Long lists
+  scroll; Home/End and Enter work within the menu.
 - Delete: remove the selected annotation, otherwise remove the current page
 - `Ctrl+Shift+S`: save a new PDF
-- `Ctrl++` / `Ctrl+-`: zoom
-- Two-finger pinch: smoothly zoom around the point under your fingers
+- `Ctrl++` (or `Ctrl+=`) / `Ctrl+-`: zoom, keeping the centre of the view in place
+- Two-finger trackpad pinch: smoothly zoom around the mouse pointer
+- Rest one or two fingers on the trackpad to pause a glide. Move again promptly
+  in the same direction to continue it; holding still or lifting stops it.
+  Requires compositor hold-gesture support; clicking also stops motion.
 
 Text and signatures can be dragged after placement. Selected text shows an
-open-hand cursor; drag for a closed hand and constrained page movement. Click
+open-hand cursor; drag for a closed hand and constrained page movement. Hover
+a selected annotation for a quiet movement hint. Arrow nudges use one
+PDF point, or ten with Shift, independent of zoom. A quick sequence is one undo
+step, including after closing and reopening the draft. Click
 **Edit**, double-click, or press Enter to edit; click outside to finish. Escape
 cancels a new field or discards changes to existing text. Delete removes a
 selection, either from the keyboard or the visible contextual button. **Move up**
-and **Move down** at the bottom of the sidebar change page order;
-**Remove page** slices a page out. The toolbar wraps to fit narrower windows.
+and **Move down** in the page menu change page order; **Remove page** slices a
+page out. Undo returns to the page that was edited. The toolbar wraps to fit
+narrower windows. The signature dialog keeps keyboard focus inside it; Escape
+cancels without saving a signature.
 
 Selected text has a right-edge handle for changing the field width without
 changing its font size. Selected signatures have a corner handle that resizes
@@ -148,25 +199,41 @@ the visible signature is on the page.
 Line breaks are explicit (Shift+Enter); text does not automatically wrap, so
 the editor and exported PDF use the same lines.
 
-## UI regression test
+## Testing
 
-With Oma Preview open, `tests/ui-flow.sh` injects real pointer clicks through uinput,
-uses the read-only Quickshell IPC seam to locate controls, types into the actual
-text editor, places the saved signature, and removes both test annotations. It
-also clicks the contextual formatting controls and checks their model updates.
-It does not invoke UI actions through IPC or export a document.
+Run the actual UI in isolated offscreen windows, with private fixtures and state:
 
-`tests/pinch-flow.sh` creates a temporary two-contact Linux input device and
-verifies that native pinch-in and pinch-out gestures change the live zoom level.
+```sh
+cargo build --locked
+bash native/build.sh
+python3 tests/offscreen-suite.py
+```
 
-`python3 tests/corpus-smoke.py FILE.pdf ...` measures inspection, first visible
-Qt render, and real-keyboard page turns. It also checks bookmark persistence and
-reopening through the actual Recent menu in an isolated state directory.
+The suite covers real button/key flows, draft recovery, page navigation,
+bookmarks, lazy rendering, theme changes and raster quality at four display
+scales, plus 100-step draft recovery on a large document. It requires the app
+dependencies, Python and ImageMagick; it never sends
+input to your desktop or changes an open document.
+
+For local page-readiness and zoom-settling measurements on real documents:
+
+```sh
+python3 tests/render-performance.py document.pdf another.pdf
+python3 tests/history-performance.py large-document.pdf
+python3 tests/history-performance.py large-document.pdf pages
+```
+
+These offscreen software-rendering measurements are not GPU frame rates.
+See [test results](tests/RESULTS.md) for measured scope and remaining caveats.
+The older global-input scripts are restricted to a dedicated test desktop;
+read [automation safety](tests/SAFETY.md) before using them.
 
 ## Deliberate boundaries
 
 Oma Preview treats filling as visible text/signature overlays instead of exposing the
-complexity of PDF form internals. The useful next additions are search/copy,
+complexity of PDF form internals. Find searches the text in source PDF pages and
+highlights whole matching words; it does not OCR scans or search unexported text
+overlays. The useful next additions are copy,
 rotate, and print/share. They should remain secondary commands rather
 than becoming permanent toolbar furniture.
 
